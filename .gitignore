@@ -23,3 +23,11 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+
+
+#prelim testing
+prelim_test.ipynb
+
+#raw data
+.mental_fatigue/
