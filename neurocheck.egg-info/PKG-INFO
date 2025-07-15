@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: neurocheck
+Version: 0.0.1
+Requires-Dist: pytest
+Requires-Dist: pylint
+Requires-Dist: ipdb
+Requires-Dist: jupyterlab
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: scikit-learn
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Dynamic: requires-dist

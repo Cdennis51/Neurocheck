@@ -1,0 +1,9 @@
+README.md
+setup.py
+neurocheck/__init__.py
+neurocheck/api_file.py
+neurocheck.egg-info/PKG-INFO
+neurocheck.egg-info/SOURCES.txt
+neurocheck.egg-info/dependency_links.txt
+neurocheck.egg-info/requires.txt
+neurocheck.egg-info/top_level.txt
