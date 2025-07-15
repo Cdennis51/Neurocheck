@@ -1,0 +1,24 @@
+# UI only
+streamlit==1.28.0
+pandas==2.0.3
+numpy==1.24.3
+plotly==5.15.0
+
+# API communication
+requests==2.31.0
+
+# File handling
+pillow==9.5.0              # For displaying images
+soundfile==0.12.1          # For audio file uploads
+
+# PDF downloads
+fpdf2==2.7.4
+reportlab==4.0.4
+
+# OpenAI (if calling directly from frontend)
+openai==1.3.0
+tiktoken==0.5.1
+
+# Hugging Face
+transformers==4.33.0
+huggingface-hub==0.17.0
