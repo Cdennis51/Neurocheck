@@ -4,7 +4,24 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
 
-def preprocess(raw_data):
+def preprocess_predict(uploaded_data):
+    """
+    This function takes a csv passed by the frontend and processes it to be ready for predict.
+    """
+    # Drop and assign columns
+    uploaded_data.columns = uploaded_data.columns.str.strip()
+
+    # Drop class if it's there
+    data = uploaded_data.columns.drop('class')
+
+    # Normalize data
+    data_norm = np.array(MinMaxScaler().fit_transform(data))
+
+    print(f"Prediction data shape: {data_norm.shape}")
+
+    return data_norm
+
+def preprocess_raw(raw_data):
     """
     This funcitons takes the raw data and applies the following preprocessing steps:
         - dropping and assigning columns
@@ -64,7 +81,7 @@ def preprocess(raw_data):
     splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)  #prevents pverlap between train/test split for groups
     train_idx, test_idx = next(splitter.split(X_norm, y_windows, groups=session_ids))
 
-    # not sure whether to normalise per window again maybe test and remove
+    # Normalize X
     X_norm = np.array([MinMaxScaler().fit_transform(window) for window in X_windows])
 
     X_train, X_test = X_norm[train_idx], X_norm[test_idx]
