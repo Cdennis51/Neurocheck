@@ -1,3 +1,19 @@
+### Team-Specific, "Added by Collaborator" .gitignore
+
+# Collaborator added: prelim testing
+prelim_test.ipynb
+
+# Collaborator added: raw data
+raw_data/
+.mental_fatigue/
+
+# Collaborator added: Test Results
+TestResults.xml
+
+####
+
+### Standard Development .gitignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
