@@ -1,0 +1,19 @@
+# Current command for Procfile while app and int dev team experiment with deployment on Railway
+`web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
+
+# Defines HTTP process type for app
+`web:`
+
+# Runs the Streamlit application from app.py
+`streamlit run app.py`
+
+# Uses the dynamic port number assigned by Railway.
+# $PORT required by runway, will be injected by Railway automatically at runtime.
+`--server.port $PORT`
+
+# Binds the Streamlit server to all available network interfaces for external accessibility
+`--server.address 0.0.0.0`
+
+# Potential Errors
+`Address already in use`    # Railway failed to assign a port properly. See logs.
+App Doesn't Load    # Railway is not finding app.py in where it expects to see it. 
