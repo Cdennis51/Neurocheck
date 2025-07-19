@@ -1,0 +1,18 @@
+# Everything from MVP
+-r requirements.txt
+
+# File handling (optional later)
+pillow==9.5.0   # For displaying images
+soundfile==0.12.1   # For audio file uploads
+
+# PDF downloads, exports (optional later)
+fpdf2==2.7.4
+reportlab==4.0.4
+
+# OpenAI (only if calling GPT from frontend)
+openai==1.3.0
+tiktoken==0.5.1
+
+# Hugging Face (only if directly loading models in frontend)
+transformers==4.33.0
+huggingface-hub==0.17.0
