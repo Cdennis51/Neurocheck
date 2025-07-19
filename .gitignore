@@ -1,8 +1,3 @@
-
-
-.raw_data/
-
-
 ### AL ###
 #Template for AL projects for Dynamics 365 Business Central
 #launch.json folder
@@ -25,6 +20,9 @@ rad.json
 *.flf
 #Test results file
 
+TestResults.xml
+
+
 
 #prelim testing
 prelim_test.ipynb
@@ -34,7 +32,8 @@ prelim_test.ipynb
 
 TestResults.xml
 #Raw data
-raw_data
+raw_data/
+
 #.env
 .env
 .envrc
