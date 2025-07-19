@@ -4,15 +4,15 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
 
-def preprocess_predict(uploaded_data):
+def preprocess_predict(frontend_data):
     """
     This function takes a csv passed by the frontend and processes it to be ready for predict.
     """
     # Drop and assign columns
-    uploaded_data.columns = uploaded_data.columns.str.strip()
+    frontend_data.columns = frontend_data.columns.str.strip()
 
     # Drop class if it's there
-    data = uploaded_data.columns.drop('class')
+    data = frontend_data.columns.drop('class')
 
     # Normalize data
     data_norm = np.array(MinMaxScaler().fit_transform(data))
