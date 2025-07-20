@@ -17,9 +17,6 @@ def train_model(X_train, model):
     #save model
     pass
 
-def save_model(model):
-    pass
-
 def evaluate_model(model, X_test):
     """
     This function takes the trained model and evaluates it on X_test.

@@ -8,6 +8,6 @@ def index():
     return {'Welcome to the Neurocheck API!': True}
 
 #Prediction endpoint
-@app.get('/predict')
+@app.get('/predict/eeg')
 def predict():
     return {'This is the prediction endpoint': True}
