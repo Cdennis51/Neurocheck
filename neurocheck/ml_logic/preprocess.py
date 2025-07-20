@@ -21,9 +21,9 @@ def preprocess_predict(frontend_data):
 
     return data_norm
 
-def preprocess_raw(raw_data):
+def preprocess_raw_dl(raw_data):
     """
-    This funcitons takes the raw data and applies the following preprocessing steps:
+    This funcitons takes the raw data for deep learning and applies the following preprocessing steps:
         - dropping and assigning columns
         - creating windows
         - normalizing
