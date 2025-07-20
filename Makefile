@@ -16,7 +16,11 @@ run_evaluate:
 run_all: run_preprocess run_pred run_evaluate
 
 ######################## API ########################
-# Build the Docker image for local development
+#run api locally
+run_api:
+	uvicorn neurocheck.api_folder.api_file:app --reload
+
+# Build the Docker image for local deployment
 build_container_local:
 	docker build --tag=${DOCKER_IMAGE_NAME}:dev .
 
