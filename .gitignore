@@ -74,3 +74,4 @@ Thumbs.db
 # Misc
 *.bak
 *.swp
+.DS_Store
