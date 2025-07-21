@@ -12,7 +12,6 @@ def index():
 
 #Prediction endpoint
 @app.post('/predict/eeg')
-def predict():
 async def predict(file: UploadFile = File(...)):
     # Read uploaded file as bytes and convert to DataFrame
     contents = await file.read()

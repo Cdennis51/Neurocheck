@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import accuracy_score
+from neurocheck.ml_logic.registry import save_model
 
 def initialize_model(n_estimators=100, max_depth=20, n_jobs=-1, random_state=42, class_weight='balanced'):
     model = RandomForestClassifier(
@@ -23,10 +24,9 @@ def train_model(X_train, y_train, model):
     This function takes the preprocessed features and trains a model.
     It then saves the model as a pickle file.
     """
-    model.fit(X_train, y_train)
+    model = model.fit(X_train, y_train)
 
-    #save model
-    pass
+    return model
 
 def evaluate_model(model, X_test, y_test):
     """
@@ -44,7 +44,7 @@ def predict(frontend_data_preprocessed):
     This function takes the preprocessed user data and predicts mental fatigue using our model.
     It returns a prediction and scoring metrics.
     """
-    #load model from mlflow
+    #load model from mlflow?
 
     #test shape of frontend_data_preprocessed
     try:
