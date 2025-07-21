@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-def preprocess_eeg_data(csv_path): # This takes raw CSV file from one of the sessions either morning or night and scales - preparing the data for Random Forest.
+def preprocess_eeg_data(csv_path): # This takes raw CSV file from one of the sessions either morning or night and scales - preparing the data for XGBoost.
 
     # Load the CSV
     raw_eeg = pd.read_csv(csv_path)
@@ -33,5 +33,3 @@ def preprocess_eeg_data(csv_path): # This takes raw CSV file from one of the ses
     )
 
     return scaled_eeg
-
-# I dont know how we will get the CSV from the frontend and then place it somewhere for this function to read it. If we opt to go with the Random Forest, this is all the preprocessing we need to apply before feeding it to our model.
