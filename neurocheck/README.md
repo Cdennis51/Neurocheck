@@ -107,11 +107,13 @@ curl -X POST "http://localhost:8000/predict/eeg" \
 <u>Expected placeholder response:</u>
 ```json
 {
+
   "backend_status": "development_mode_development",
   "fatigue_class": "alert",
   "confidence": 0.83,
   "filename": "sample_eeg.csv",
   "note": "Dummy response - development. Real model integration pending."
+
 }
 ```
 
