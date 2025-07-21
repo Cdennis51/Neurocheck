@@ -69,7 +69,7 @@ If you have `pip` installed:
 pip install -r requirements.txt
 ```
 
-#### Run the BackEnd Server
+#### Run the Backend Server
 
 Start the backend with Uvicorn:
 
@@ -135,17 +135,7 @@ neurocheck/
 
 ---
 
-## Temporary Railway Deployment While Awaiting Model Integration (Will Revise and Update)
-
-For Railway, the backend will run with the same Uvicorn command.
-
-```web: uvicorn api.main:app --host 0.0.0.0 --port $PORT --reload```
-
----
-
 ## In Development: API Handshake and Transaction
-
-- Add Procfile for temporary Backend Railway Deployment
 
 -  Confirm backend runs locally
 
@@ -156,5 +146,3 @@ For Railway, the backend will run with the same Uvicorn command.
 -  Integrate model inference (ml_logic/model.py)
 
 -  Connect backend with Streamlit frontend via utils/api_client.py
-
--  Deploy backend to Railway
