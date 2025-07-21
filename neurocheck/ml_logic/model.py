@@ -39,22 +39,29 @@ def evaluate_model(model, X_test, y_test):
 
     return y_pred
 
-def predict(frontend_data_preprocessed):
+def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
     """
     This function takes the preprocessed user data and predicts mental fatigue using our model.
     It returns a prediction and scoring metrics.
     """
-    #load model from mlflow?
+    # Type check
+    if not isinstance(frontend_data_preprocessed, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
 
     #test shape of frontend_data_preprocessed
-    try:
-        assert(frontend_data_preprocessed.shape == )
-    except:
-        print(f"The prediciton data doesn't have the correct shape. Current shape: {frontend_data_preprocessed.shape}")
+    assert frontend_data_preprocessed.shape[0] == 1, "Preprocessed DataFrame must have exactly one row"
 
-    #predict 'class'
+    # TODO: maybe add feature check?
+
+    # predict
     y_pred = model.predict(frontend_data_preprocessed)
+    y_proba = model.predict_proba(frontend_data_preprocessed) if hasattr(model, 'predict_proba') else None
 
-    #return prediction metrics?
+    result = {
+        "prediction": int(y_pred[0])
+    }
 
-    return y_pred
+    if y_proba is not None:
+        result["confidence"] = float(max(y_proba[0]))
+
+    return result
