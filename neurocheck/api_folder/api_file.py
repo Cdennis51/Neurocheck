@@ -1,60 +1,121 @@
+"""
+NeuroCheck Backend API
+======================
+
+This module implements a FastAPI backend for EEG fatigue prediction.
+
+Key Features:
+-------------
+1. **Health Check Endpoint (`/`)**
+   - Returns backend status, version, and availability of preprocessing/model components.
+
+2. **EEG Prediction Endpoint (`/predict/eeg`)**
+   - Accepts EEG data as CSV (EDF support planned for future).
+   - (Optional) Preprocesses EEG data before prediction.
+   - Predicts fatigue level using a loaded ML model.
+   - Falls back to dummy predictions if preprocessing or model is unavailable.
+
+3. **CORS Middleware**
+   - Allows independent frontend-backend communication.
+   - Default: all origins allowed (configure for production).
+
+4. **Model & Preprocessing Management**
+   - Tries to import preprocessing and model components dynamically.
+   - Logs warnings if unavailable to allow backend to run in development mode.
+   - Supports "development" mode with dummy responses when real model is missing.
+
+5. **EDF Support (Future)**
+   - Placeholder `read_edf_to_dataframe` for future EDF file integration.
+
+Development Notes:
+------------------
+- In production mode, ensure preprocessing and model modules are installed.
+- In development mode, dummy predictions will be generated for testing.
+
+Run Locally:
+------------
+    uvicorn neurocheck.api_file:app --host 0.0.0.0 --port 8000 --reload
+"""
 from io import BytesIO
+import logging
+import random
+import pandas as pd
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
 import uvicorn
-import logging
-import tempfile
 
-# EDF file support requires mne package
-# Attempt to import mne for EDF file support
+
+# === Configure Logging ===
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+
+# === EDF File Support (Post MVP) ===
+## EDF file support requires mne package
+
+## Attempt to import mne for EDF file support
 # try:
 #     import mne  # for EDF files
 #     EDF_SUPPORT = True
+
 # except ImportError:
 #     EDF_SUPPORT = False
 
+
+# === EDF Reader Function (Post MVP) ===
+def read_edf_to_dataframe(file_obj):
+    """Stub for EDF file parsing. Requires mne to implement."""
+    raise NotImplementedError("EDF file support not yet implemented. Use CSV instead.")
+
+
+# === Preprocessing Module Import ===
 # Attempt to import preprocessing components
-# If they fail, set to False and print a warning.
-# This allows the backend to run even if preprocessing is not available.
-PREPROCESS_AVAILABLE = None
 try:
     from neurocheck.ml_logic.preprocess import preprocess_predict as preprocess_eeg
     PREPROCESS_AVAILABLE = True
+
+# If it fails, set to False and log warning.
+# This allows the backend to run even if preprocessing is not available.
 except ImportError as e:
-    print(f"Warning: Preprocessing not available. {e}")
+    logging.warning("Preprocessing not available: %s", e)
     preprocess_eeg = None
     PREPROCESS_AVAILABLE = False
 
-# Attempt to import model components that will be instantiated and called later.
-# If they fail, set to False and print a warning.
-# This allows the backend to run even if model is not available.
-MODEL_AVAILABLE = None
+
+# === Model Module Import ===
+# Attempt to import model components that will be instantiated and called later
 try:
     from neurocheck.ml_logic.model import load_model as ml_load_eeg_model
     from neurocheck.ml_logic.model import predict_model as eeg_model_predict
     MODEL_AVAILABLE = True
+
+# If they fail, set to False and log warning.
+# This allows the backend to run even if model is not available.
 except ImportError as e:
-    print(f"Warning: Model components not available. {e}")
+    logging.warning("Model components not available: %s", e)
     ml_load_eeg_model = None
     eeg_model_predict = None
     MODEL_AVAILABLE = False
 
-# Initialize FastAPI app
+
+# === Initialize FastAPI App ===
 app = FastAPI(
     title="NeuroCheck Backend",
     description="EEG Fatigue Prediction Backend",
-    version="0.2.0"
+    version="0.1.0"
 )
 
-# Allow CORS so separate Streamlit frontend can call the backend
+
+# === CORS Functionality for Independent Front End, Back End Communication ===
 # https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
 app.add_middleware(
     CORSMiddleware,
 
     # For development, allow all origins.
-    # For production, specify and updated allowed origins.
     allow_origins=["*"],
+    # For production, specify and updated allowed origins.
     # allow_origins=["https://your-frontend-url.com"],  # Replace with your frontend URL
     # allow_origins=["http://localhost:8501"],  # For local
 
@@ -63,31 +124,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Try to load model, set status flags
-# If they fail, set to False and print a warning.
+
+# === Global Model Placeholder ===
+MODEL_LOADED = False
 eeg_model = None
-MODEL_LOADED = None
+
+
+# === Load Model At Startup===
+# Attempt to load the model if available
 if MODEL_AVAILABLE:
+
     try:
-        eeg_model = ml_load_eeg_model() # Ignore None Warning During Development
+        eeg_model = ml_load_eeg_model() # Will be None during development
         MODEL_LOADED = True
         logging.info("Model loaded successfully")
-        print("Model loaded successfully")
+
+
     except (FileNotFoundError, IOError) as e:
-        print(f"Warning: Failed to load model. {e}")
+        logging.warning("Warning: Failed to load model: %s", e)
         MODEL_LOADED = False
 
 
-# Health check endpoint (Backend online checkpoint)
+# === Health Check Endpoint, Check If Backend Online===
 @app.get("/")
 def index():
     """
     Health check endpoint for the NeuroCheck backend.
 
     Returns:
-        dict: JSON response confirming backend is online,
-              includes backend version and available prediction endpoint,
-              as well as preprocessing and model status.
+        dict: A JSON response confirming:
+        - backend status
+        - version info
+        - availability of preprocessing/model
+        - current mode (development vs production)
     """
     health_status = {
         "status": "online",
@@ -99,58 +168,59 @@ def index():
             "mode": "production" if (PREPROCESS_AVAILABLE and MODEL_LOADED) else "development"
         }
     }
-
     return health_status
 
-# EEG prediction endpoint (placeholder for now)
+
+# === EEG Prediction Endpoint ===
 @app.post("/predict/eeg")
 async def predict_eeg(file: UploadFile = File(...)):
     """
-    EEG prediction with fallback to dummy responses.
+    EEG prediction endpoint with fallback dummy responses.
 
     Accepts:
-        - CSV, EDF file upload (EEG signal data)
+        - CSV (and EDF in future) file uploads
 
     Process:
-        - Reads uploaded CSV → converts to DataFrame
-        - (Future) Preprocesses data before prediction
-        - (Future) Uses ML model to predict fatigue level
+        - Reads uploaded EEG file → DataFrame
+        - (Future) Preprocess data before prediction
+        - (Future) Predicts fatigue level using ML model
 
     Returns:
-        dict: JSON with dummy fatigue_class + confidence
+        dict: JSON with fatigue_class + confidence (dummy if no model)
     """
-
     filename = file.filename.lower()
+
+    # Step 1: Load EEG into DataFrame
     try:
         if filename.endswith(".csv"):
-            eeg_df = pd.read_csv(file.file)
+            contents = await file.read()
+            eeg_df = pd.read_csv(BytesIO(contents))
         elif filename.endswith(".edf"):
-            eeg_df = read_edf_to_dataframe(file.file)
+            eeg_df = read_edf_to_dataframe(file.file)  # Not yet implemented
         else:
-            return {"error": "Unsupported file format. Please upload CSV or EDF."}
-    except Exception as e:
+            return {"error": "Unsupported file format. Please upload CSV (EDF coming soon)."}
+
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, OSError, IOError) as e:
         return {"error": f"Failed to read EEG file: {str(e)}"}
 
-    #  Read uploaded file as bytes → convert to DataFrame
-    contents = await file.read()
-    eeg_df = pd.read_csv(BytesIO(contents))
 
-    # Try to preprocess the EEG data
-    if PREPROCESS_AVAILABLE:
+    # Step 2: Try preprocessing
+    preprocessing_success = False
+    proc_eeg_df = eeg_df
+
+    if PREPROCESS_AVAILABLE and preprocess_eeg:
         try:
             proc_eeg_df = preprocess_eeg(eeg_df)
             preprocessing_success = True
-        except (ValueError, KeyError, AttributeError, RuntimeError) as e:
-            print(f"Preprocessing failed: {e}")
-            #proc_eeg_df = eeg_df  # use raw data
-            preprocessing_success = False
-    else:
-        proc_eeg_df = eeg_df
-        preprocessing_success = False
+
+        except (ValueError, RuntimeError) as e:
+            logging.warning("Preprocessing failed: %s", e)
+            proc_eeg_df = eeg_df  # fallback to raw data
+
+    # Step 3: Try predicting
     if MODEL_LOADED and eeg_model:
         try:
             prediction = eeg_model_predict(eeg_model, proc_eeg_df)
-            # Convert numpy to native Python types for JSON
             result = {
                 "backend_status": "production",
                 "fatigue_class": str(prediction["class"]),
@@ -158,18 +228,21 @@ async def predict_eeg(file: UploadFile = File(...)):
                 "filename": file.filename,
                 "preprocessing_used": preprocessing_success
             }
-        except (ValueError, KeyError, AttributeError, RuntimeError) as e:
-            print(f"Prediction failed: {e}")
-            result = create_dummy_response(file.filename or "unknown_file", "prediction_error")
+
+        except (ValueError, RuntimeError, KeyError) as e:
+            logging.warning("Prediction failed: %s", e)
+            result = create_dummy_response(file.filename, "prediction_error")
+
     else:
-        result = create_dummy_response(file.filename or "unknown_file", "development")
+        result = create_dummy_response(file.filename, "development")
 
     return result
 
+
+
+# === Dummy Response Generator ===
 def create_dummy_response(filename: str, mode: str):
     """Generate dummy response for development/testing"""
-    import random
-
     dummy_classes = ["alert", "fatigued", "drowsy"]
 
     return {
@@ -180,6 +253,6 @@ def create_dummy_response(filename: str, mode: str):
         "note": f"Dummy response - {mode}. Real model integration pending."
     }
 
-# Local development server
+# === Local Dev Server Runner ===
 if __name__ == "__main__":
     uvicorn.run("neurocheck.api_file:app", host="0.0.0.0", port=8000, reload=True)
