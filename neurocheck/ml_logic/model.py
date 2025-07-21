@@ -44,6 +44,7 @@ def train_model(X_train, y_train, model):
     - model: sklearn or XGBoost model instance
     - model_path: file path to save the trained model
     """
+    #TODO load whole data and do train/ test split within this function
     model = model.fit(X_train, y_train)
 
     return model

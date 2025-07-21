@@ -1,6 +1,8 @@
 
 import pandas as pd
 import numpy as np
+import os
+
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
 
@@ -25,7 +27,6 @@ def preprocess_eeg_data(csv_path):
     """
     This takes raw CSV file from one of the sessions either morning or night and scales - preparing the data for XGBoost.
     """
-
     # Load the CSV
     raw_eeg = pd.read_csv(csv_path)
 
@@ -56,7 +57,18 @@ def preprocess_eeg_data(csv_path):
         index=raw_eeg.index
     )
 
-    return scaled_eeg
+    print("Preprocessing EEG data done!")
+    print(scaled_eeg.shape, scaled_eeg.columns.tolist())
+
+    # Save processed data
+    processed_path = os.environ["PROCESSED_PATH"]
+    os.makedirs(processed_path, exist_ok=True)
+    output_path = os.path.join(processed_path, "processed_eeg.csv")
+    scaled_eeg.to_csv(output_path, index=False)
+
+    print(f"Processed data saved to {output_path}")
+
+    return None
 
 
 def preprocess_dl(raw_data):
