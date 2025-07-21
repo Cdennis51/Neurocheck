@@ -8,7 +8,16 @@ matplotlib
 seaborn
 scikit-learn
 tensorflow
+xgboost
 
 #API
 fastapi
 uvicorn
+
+#Model registry
+mlflow
+os
+pickle
+time
+glob
+colorama
