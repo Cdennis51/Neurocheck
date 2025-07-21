@@ -8,6 +8,7 @@ def preprocess_eeg_data(csv_path): # This takes raw CSV file from one of the ses
 
     # Clean column names
     raw_eeg.columns = raw_eeg.columns.str.strip()
+    print(raw_eeg.columns.tolist())
 
     # Convert `time` column to timedelta
     raw_eeg['time'] = pd.to_timedelta(raw_eeg['time'], unit='s')
