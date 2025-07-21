@@ -1,6 +1,7 @@
 
 
 from neurocheck.ml_logic.preprocess import preprocess_predict
+from neurocheck.ml_logic.model import predict
 
 
 def preprocess(frontend_data):
@@ -15,5 +16,22 @@ def preprocess(frontend_data):
 
     return preprocessed_prediction_data
 
+def predict():
+    """
+    Takes the preprocessed user data and makes a prediciton using the current production model.
+    Returns the predicted class.
+    """
+    pass
+
+def evaluate():
+    """
+    Evaluates the prediciton? Not sure if we'll have the actual correct class?
+    """
+
+    pass
+
 if __name__ == '__main__':
     preprocess()
+    predict()
+    #evaluate()
+    
