@@ -21,7 +21,7 @@ async def predict(file: UploadFile = File(...)):
     df = preprocess_predict(df)
 
     # Make predictions
-    prediction = model.predict(df)
+    #prediction = model.predict(df)
 
     #return {'prediction': prediction.tolist()}  # Convert numpy to list for JSON response
 
