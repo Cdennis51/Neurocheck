@@ -1,4 +1,29 @@
 .DEFAULT_GOAL := default
+#################### MODEL REGISTRY ###################
+run_save_results:
+	python -c 'from neurocheck.ml_logic.registry import save_results; save_results()'
+
+run_save_model:
+	python -c 'from neurocheck.ml_logic.registry import save_model; save_model()'
+
+run_retrieve_model:
+	python -c 'from neurocheck.ml_logic.registry import retrieve_model; retrieve_model()'
+
+run_mlflow_run:
+	python -c 'from neurocheck.ml_logic.registry import mlflow_run; mlflow_run()'
+
+################### MODEL TRAINING #####################
+run_preprocess_for_training:
+	echo ${DATA_PATH}
+	python -c 'from neurocheck.ml_logic.preprocess_TT import preprocess_eeg_data; preprocess_eeg_data("${DATA_PATH}")'
+
+run_train_model:
+	python -c 'from neurocheck.ml_logic.model import train_model, initialize_model;
+	train_model(None, None, initialize_model())'
+
+run_evaluate_model:
+	python -c 'from neurocheck.ml_logic.model import evaluate_model; evaluate_model()'
+
 #################### PACKAGE ACTIONS ###################
 reinstall_package:
 	@pip uninstall -y neurocheck || :
@@ -8,10 +33,7 @@ run_preprocess:
 	python -c 'from neurocheck.interface.main import preprocess; preprocess()'
 
 run_pred:
-	python -c 'from neurocheck.interface.main import predict; predict()'
-
-run_evaluate:
-	python -c 'from neurocheck.interface.main import evaluate; evaluate()'
+	python -c 'from neurocheck.interface.main import prediction_result; prediction_result()'
 
 run_all: run_preprocess run_pred run_evaluate
 

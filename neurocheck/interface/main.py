@@ -43,5 +43,4 @@ def prediction_result(X_pred: pd.DataFrame = None) -> np.ndarray:
 
 if __name__ == '__main__':
     preprocess()
-    predict()
-    #evaluate()
+    prediction_result()
