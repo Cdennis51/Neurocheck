@@ -3,37 +3,68 @@ This module provides a utility function to send EEG data files to a FastAPI back
 for fatigue prediction. It attempts to contact the `/predict/eeg` endpoint and returns
 the JSON response. If the backend is unavailable, it returns a mock response for demo purposes.
 """
+import os
 import requests
 
-API_BASE_URL = "http://localhost:8000" # Replace with deployed backend later
+API_BASE_URL = os.getenv("EEG_API_URL", "http://localhost:8000")
 
-def call_eeg_api(uploaded_file):
-    """Send EEG file to backend FastAPI for prediction.
-       If backend is offline, return a mock response for demo."""
+def call_eeg_api(uploaded_file, timeout: int = 120):
+    """
+        Send an EEG file to the FastAPI backend for fatigue prediction.
 
-    # Convert user uploaded file into (filename, bytes, MIME type)
+        Args:
+            uploaded_file: File-like object (e.g., from Streamlit `st.file_uploader`)
+                        Must have `.name`, `.getvalue()`, and `.type` attributes.
+            timeout (int): Request timeout in seconds (default: 10).
+
+        Returns:
+            dict: JSON response from backend if available.
+                Example:
+                {
+                    "fatigue_class": "alert",
+                    "confidence": 0.92,
+                    "backend_status": "production",
+                    ...
+                }
+
+                If backend is offline/unreachable:
+                {
+                    "fatigue_class": "fatigued (demo)",
+                    "confidence": 0.87,
+                    "backend_status": "offline"
+                }
+
+        Raises:
+            ValueError: If uploaded_file is not a valid file-like object.
+        """
+
+    # Validate uploaded file
+    if not hasattr(uploaded_file, "getvalue"):
+        raise ValueError("uploaded_file must be a file-like object (e.g., from Streamlit uploader)")
+
+    # Convert file for multipart/form-data upload
     files = {
         "file": (
             uploaded_file.name,
             uploaded_file.getvalue(),
-            uploaded_file.type
+            uploaded_file.type or "application/octet-stream"
         )
     }
 
-    # Make the API call to the EEG prediction endpoint
     try:
-        response = requests.post(f"{API_BASE_URL}/predict/eeg", files=files, timeout=30)
+        # Send to backend prediction endpoint
+        response = requests.post(f"{API_BASE_URL}/predict/eeg", files=files, timeout=timeout)
         response.raise_for_status() # Raise HTTP failures
         return response.json()      # Return JSON response from API
 
-    ## Backend online error handling network issues or server errors
-    #except requests.exceptions.RequestException as e:
-    #    return {"error": str(e)}    # raises file processing errors
+    except requests.exceptions.HTTPError as e:
+        # Backend responded with error (e.g., 400 Bad Request)
+        return {"backend_status": "error", "message": f"Backend error: {str(e)}"}
 
-    # Current Development Handling of Backend offline → return fake response
     except requests.exceptions.RequestException:
+        # Backend unreachable → return dummy response
         return {
-            "fatigue_class": "fatigued (demo)",
+            "fatigue_class": "Fatigued (Demo)",
             "confidence": 0.87,
             "backend_status": "offline"
         }
