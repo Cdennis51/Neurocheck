@@ -40,7 +40,7 @@ from io import BytesIO
 import logging
 import random
 import pandas as pd
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -198,10 +198,18 @@ async def predict_eeg(file: UploadFile = File(...)):
         elif filename.endswith(".edf"):
             eeg_df = read_edf_to_dataframe(file.file)  # Not yet implemented
         else:
-            return {"error": "Unsupported file format. Please upload CSV (EDF coming soon)."}
+            logging.warning("Unsupported file format: %s", filename)
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file format. Please upload CSV (EDF coming soon)."
+        )
 
     except (pd.errors.EmptyDataError, pd.errors.ParserError, OSError, IOError) as e:
-        return {"error": f"Failed to read EEG file: {str(e)}"}
+        logging.error("Failed to read EEG file: %s", e)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to read EEG file: {str(e)}"
+        ) from e
 
 
     # Step 2: Try preprocessing
