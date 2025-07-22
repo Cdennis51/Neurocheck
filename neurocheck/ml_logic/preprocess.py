@@ -6,6 +6,7 @@ import os
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
 
+# This can also be deleted, the function preprocess_eeg_data takes this into account.
 def preprocess_predict(frontend_data):
     """
     This function takes a csv passed by the frontend and processes it to be ready for predict.
@@ -71,6 +72,9 @@ def preprocess_eeg_data(csv_path):
     return None
 
 
+
+
+# This we can delete - we are no longer doing a deep learning module.
 def preprocess_dl(raw_data):
     """
     This funcitons takes the raw data for deep learning and applies the following preprocessing steps:
