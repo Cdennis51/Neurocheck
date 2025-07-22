@@ -1,6 +1,24 @@
 from xgboost import XGBClassifier
 import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import mlflow.xgboost
+
+
+def train_model(X_train, y_train, model):
+
+    model.fit(X_train, y_train)
+
+
+
+
+
+
+
+
+
+
+
+
 
 def initialize_xgb_model(
     n_estimators=100,
@@ -27,6 +45,9 @@ def initialize_xgb_model(
         random_state=random_state
     )
     return model
+
+
+
 
 
 def train_model(X_train, y_train, model, model_path="trained_model.pkl"):
