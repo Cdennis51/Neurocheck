@@ -27,6 +27,8 @@ def initialize_xgb_model(
         random_state=random_state
     )
     return model
+
+
 def train_model(X_train, y_train, model, model_path="trained_model.pkl"):
     """
     Trains the model on the given data and saves it as a pickle file.
@@ -44,6 +46,8 @@ def train_model(X_train, y_train, model, model_path="trained_model.pkl"):
         pickle.dump(model, f)
 
     print(f"Model saved to: {model_path}")
+
+
 def evaluate_model(model, X_test, y_test):
     """
     Evaluates the trained model on test data.
