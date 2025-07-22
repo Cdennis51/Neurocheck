@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from preprocess_TT import preprocess_eeg_data, filter_to_eeg_channels
 from model_TT import initialize_xgb_model, train_model, evaluate_model
+from registry import save_results, save_model
 
 # Load raw data
 df = pd.read_csv('../raw_data/MEFAR_preprocessed/MEFAR_MID.csv')
@@ -21,5 +22,8 @@ model = initialize_xgb_model()
 # Train and save
 train_model(X_train,y_train,model)
 
-# Evaluate
-evaluate_model(model, X_test,y_test)
+# Save the results:
+save_results()
+
+# Save the model to MLFlow:
+save_model(model)

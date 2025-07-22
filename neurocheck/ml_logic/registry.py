@@ -5,7 +5,7 @@ import pickle
 
 from colorama import Fore, Style
 
-from neurocheck.ml_logic.params import *
+from params import *
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.pyfunc import PyFuncModel
