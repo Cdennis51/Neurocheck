@@ -1,4 +1,6 @@
 .DEFAULT_GOAL := default
+include .env
+export
 #################### MODEL REGISTRY ###################
 run_save_results:
 	python -c 'from neurocheck.ml_logic.registry import save_results; save_results()'
@@ -14,12 +16,12 @@ run_mlflow_run:
 
 ################### MODEL TRAINING #####################
 run_preprocess_for_training:
-	echo ${DATA_PATH}
-	python -c 'from neurocheck.ml_logic.preprocess_TT import preprocess_eeg_data; preprocess_eeg_data("${DATA_PATH}")'
+	@echo "Running preprocessing on: ${DATA_PATH}"
+	python -c 'from neurocheck.ml_logic.preprocess import preprocess_eeg_data; preprocess_eeg_data("${DATA_PATH}")'
 
-run_train_model:
-	python -c 'from neurocheck.ml_logic.model import train_model, initialize_model;
-	train_model(None, None, initialize_model())'
+run_train_model: run_preprocess_for_training
+	@echo "Training model with data from: ${PROCESSED_PATH}"
+	python -c 'from neurocheck.ml_logic.model import train_model, initialize_model; train_model("${PROCESSED_PATH}/train", "${PROCESSED_PATH}/val", initialize_model())'
 
 run_evaluate_model:
 	python -c 'from neurocheck.ml_logic.model import evaluate_model; evaluate_model()'
