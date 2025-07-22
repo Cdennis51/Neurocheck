@@ -7,7 +7,6 @@ pandas
 matplotlib
 seaborn
 scikit-learn
-#tensorflow
 xgboost
 
 #API
@@ -17,8 +16,4 @@ python-multipart
 
 #Model registry
 mlflow
-#os
-#pickle
-#time
-#glob
 colorama
