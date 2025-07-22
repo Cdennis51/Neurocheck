@@ -1,0 +1,7 @@
+# After deployment, backend processing can be tested using:
+
+```
+curl -X POST \
+  -F "file=@tests/sample_data/dummy_eeg.csv" \
+  https://your-backend-url/predict/eeg
+```
