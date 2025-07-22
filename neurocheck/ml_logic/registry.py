@@ -7,6 +7,8 @@ from colorama import Fore, Style
 
 from params import *
 import mlflow
+import mlflow.xgboost
+import tempfile
 from mlflow.tracking import MlflowClient
 from mlflow.pyfunc import PyFuncModel
 
@@ -42,32 +44,17 @@ def save_results(params: dict, metrics: dict) -> None:
 
     return None
 
-def save_model(model: mlflow.pyfunc.PyFuncModel = None) -> None:
-    """
-    Persist trained model locally on the hard drive at f"{LOCAL_REGISTRY_PATH}/models/{timestamp}.h5"
-    - if MODEL_TARGET='mlflow', also persist it on MLflow instead of GCS (for unit 0703 only)
-    """
-
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-    # Save model locally
-    model_path = os.path.join(LOCAL_REGISTRY_PATH, "models", f"{timestamp}.h5")
-    model.save(model_path)
-
-    print("✅ Model saved locally")
-
-    if MODEL_TARGET == "mlflow":
-        mlflow.tensorflow.log_model(
-            model=model,
-            artifact_path="model",
-            registered_model_name=MLFLOW_MODEL_NAME
-        )
-
-        print("✅ Model saved to MLflow")
-
-        return None
-
-    return None
+def save_model(model):
+    mlflow.set_experiment("neurocheck_experiment")
+    with mlflow.start_run():
+        mlflow.log_params(model.get_params())
+        # Save the model to a temp directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            local_model_path = f"{tmp_dir}/model"
+            mlflow.xgboost.save_model(model, path=local_model_path)
+            # Log it as an artifact manually
+            mlflow.log_artifacts(local_model_path, artifact_path="model")
+        print("Model logged to MLflow as an artifact.")
 
 def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
     """
