@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 
-from neurocheck.ml_logic.preprocess import preprocess_predict
+from neurocheck.ml_logic.preprocess import preprocess_eeg_data
 from neurocheck.ml_logic.model import predict
 from neurocheck.ml_logic.registry import save_results, save_model, retrieve_model
 
 
-def preprocess(frontend_data: pd.DataFrame) -> pd.DataFrame:
+def preprocess_eeg_data(frontend_data: pd.DataFrame) -> pd.DataFrame:
     """
     Takes user input and preprocesses it for prediction.
     Returns a dataframe with one row having one value per feature.
@@ -23,6 +23,8 @@ def preprocess(frontend_data: pd.DataFrame) -> pd.DataFrame:
         X_pred = preprocessed_prediction_data.to_frame().T  # Transpose to make it one row
     else:
         raise TypeError("Preprocessed data must be a DataFrame, Series, or dict.")
+
+    # TODO check columns
 
     assert X_pred.shape[0] == 1, "Preprocessed DataFrame must have exactly one row"
 
