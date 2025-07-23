@@ -1,12 +1,24 @@
-# API communication
+# API Framework
 fastapi==0.95.2
 pydantic==1.10.7
-uvicorn==0.22.0
+uvicorn[standard]==0.22.0
+python-multipart==0.0.6
+
+# API Communication
+requests==2.31.0
+
+# Build tools (safe on Python 3.10+)
+setuptools==68.0.0
+
+# CLI / Logs / UX
+colorama==0.4.6
+
+# Configuration and Environment Management
+python-dotenv==1.0.0
 
 # ML & Data Handling
 numpy==1.24.3
-pandas==2.0.1
+pandas==2.0.3
 scikit-learn==1.2.2
-tensorflow==2.12.0
-matplotlib==3.7.1
-seaborn==0.12.2
+mlflow==2.3.1
+xgboost
