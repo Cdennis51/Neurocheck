@@ -6,10 +6,10 @@ python-multipart==0.0.6
 
 # ML & Data Handling
 numpy==1.24.3
-pandas==2.0.1
+pandas==2.0.3
 scikit-learn==1.2.2
-xgboost==1.7.6
 mlflow==2.3.1
+xgboost
 
 # CLI / Logs / UX
 colorama==0.4.6
