@@ -43,7 +43,7 @@ import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
+from xgboost import XGBClassifier
 
 # === Configure Logging ===
 logging.basicConfig(
@@ -73,7 +73,7 @@ def read_edf_to_dataframe(file_obj):
 # === Preprocessing Module Import ===
 # Attempt to import preprocessing components
 try:
-    from neurocheck.ml_logic.preprocess import preprocess_predict as preprocess_eeg
+    from neurocheck.ml_logic.preprocess import preprocess_eeg_data as preprocess_eeg
     PREPROCESS_AVAILABLE = True
 
 # If it fails, set to False and log warning.
@@ -87,7 +87,7 @@ except ImportError as e:
 # === Model Module Import ===
 # Attempt to import model components that will be instantiated and called later
 try:
-    from neurocheck.ml_logic.model import load_model as ml_load_eeg_model
+    from neurocheck.ml_logic.registry import retrieve_model as ml_load_eeg_model
     from neurocheck.ml_logic.model import predict_model as eeg_model_predict
     MODEL_AVAILABLE = True
 
@@ -104,7 +104,7 @@ except ImportError as e:
 app = FastAPI(
     title="NeuroCheck Backend",
     description="EEG Fatigue Prediction Backend",
-    version="0.1.0"
+    version="0.3.0"
 )
 
 
@@ -146,7 +146,7 @@ if MODEL_AVAILABLE:
 
 
 # === Health Check Endpoint, Check If Backend Online===
-@app.get("/")
+@app.get("/health")
 def index():
     """
     Health check endpoint for the NeuroCheck backend.
@@ -228,11 +228,12 @@ async def predict_eeg(file: UploadFile = File(...)):
     # Step 3: Try predicting
     if MODEL_LOADED and eeg_model:
         try:
-            prediction = eeg_model_predict(eeg_model, proc_eeg_df)
+            prediction = eeg_model.predict(proc_eeg_df)
+            probability = float(eeg_model.predict_proba(proc_eeg_df)[0,1])
             result = {
                 "backend_status": "production",
-                "fatigue_class": str(prediction["class"]),
-                "confidence": float(prediction["confidence"]),
+                "fatigue_class": str(prediction[0]),
+                "confidence": float(probability),
                 "filename": file.filename,
                 "preprocessing_used": preprocessing_success
             }
@@ -251,7 +252,7 @@ async def predict_eeg(file: UploadFile = File(...)):
 # === Dummy Response Generator ===
 def create_dummy_response(filename: str, mode: str):
     """Generate dummy response for development/testing"""
-    dummy_classes = ["fatigued", "not"]
+    dummy_classes = ["fatigued", "not fatigued"]
 
     return {
         "backend_status": f"development_mode_{mode}",
