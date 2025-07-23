@@ -1,0 +1,28 @@
+# Python cache & build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.db
+*.log
+
+# Dev Test Files Not Needed In Production
+tests/
+sample_data/
+dummy_sample_eeg.csv
+
+# Environments, Secrets.env
+*.env
+
+# Git & IDE artifacts
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Jupyter Notebooks and Any Documentation
+*.ipynb
+notebooks/
+docs/
