@@ -9,6 +9,17 @@ def train_model(X_train, y_train, model):
     model.fit(X_train, y_train)
 
 
+
+
+
+
+
+
+
+
+
+
+
 def initialize_xgb_model(
     n_estimators=100,
     max_depth=5,
@@ -35,30 +46,29 @@ def initialize_xgb_model(
     )
     return model
 
-
-
-# I think we can remove this from this module - it is in it's own python package predict_TT
-def predict(frontend_data_preprocessed, expected_shape=(1, 10), model_path="trained_model.pkl"):
+def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
     """
-    Predicts mental fatigue from preprocessed frontend input.
-
-    Parameters:
-    - frontend_data_preprocessed: np.array or pd.DataFrame of shape (1, n_features)
-    - expected_shape: shape to validate against
-    - model_path: path to the saved model
-
-    Returns:
-    - y_pred: predicted label
-    - y_proba (optional): probability of class 1 (if supported)
+    This function takes the preprocessed user data and predicts mental fatigue using our model.
+    It returns a prediction and scoring metrics.
     """
-    # Load model
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
+    # Type check
+    if not isinstance(frontend_data_preprocessed, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
 
-    # Check shape
-    if frontend_data_preprocessed.shape != expected_shape:
-        print(f"[❌] Input shape mismatch. Expected {expected_shape}, got {frontend_data_preprocessed.shape}")
-        return None
+    #test shape of frontend_data_preprocessed
+    assert frontend_data_preprocessed.shape[0] == 1, "Preprocessed DataFrame must have exactly one row"
 
-    # Predict
+    # TODO: maybe add feature check?
+
+    # predict
     y_pred = model.predict(frontend_data_preprocessed)
+    y_proba = model.predict_proba(frontend_data_preprocessed) if hasattr(model, 'predict_proba') else None
+
+    result = {
+        "prediction": int(y_pred[0])
+    }
+
+    if y_proba is not None:
+        result["confidence"] = float(max(y_proba[0]))
+
+    return result
