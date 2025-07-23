@@ -1,12 +1,24 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
-
-from neurocheck.ml_logic.registry import save_model
 from xgboost import XGBClassifier
 import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import mlflow.xgboost
+
+
+def train_model(X_train, y_train, model):
+
+    model.fit(X_train, y_train)
+
+
+
+
+
+
+
+
+
+
+
+
 
 def initialize_xgb_model(
     n_estimators=100,
@@ -34,58 +46,27 @@ def initialize_xgb_model(
     )
     return model
 
-def train_model(X_train, y_train, model):
+def predict(frontend_data_preprocessed, expected_shape=(1, 10), model_path="trained_model.pkl"):
     """
-    Trains the model on the given data and saves it as a pickle file.
+    Predicts mental fatigue from preprocessed frontend input.
 
     Parameters:
-    - X_train: training features
-    - y_train: training labels
-    - model: sklearn or XGBoost model instance
-    - model_path: file path to save the trained model
+    - frontend_data_preprocessed: np.array or pd.DataFrame of shape (1, n_features)
+    - expected_shape: shape to validate against
+    - model_path: path to the saved model
+
+    Returns:
+    - y_pred: predicted label
+    - y_proba (optional): probability of class 1 (if supported)
     """
-    #TODO load whole data and do train/ test split within this function
-    model = model.fit(X_train, y_train)
+    # Load model
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
 
-    return model
+    # Check shape
+    if frontend_data_preprocessed.shape != expected_shape:
+        print(f"[❌] Input shape mismatch. Expected {expected_shape}, got {frontend_data_preprocessed.shape}")
+        return None
 
-def evaluate_model(model, X_test, y_test):
-    """
-    Evaluates the trained model on test data.
-    Prints classification report, accuracy, and confusion matrix.
-    Returns predicted labels.
-    """
-    y_pred = model.predict(X_test)
-
-    print("Classification Report:\n", classification_report(y_test, y_pred))
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-
-    return y_pred
-
-def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
-    """
-    This function takes the preprocessed user data and predicts mental fatigue using our model.
-    It returns a prediction and scoring metrics.
-    """
-    # Type check
-    if not isinstance(frontend_data_preprocessed, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame.")
-
-    #test shape of frontend_data_preprocessed
-    assert frontend_data_preprocessed.shape[0] == 1, "Preprocessed DataFrame must have exactly one row"
-
-    # TODO: maybe add feature check?
-
-    # predict
+    # Predict
     y_pred = model.predict(frontend_data_preprocessed)
-    y_proba = model.predict_proba(frontend_data_preprocessed) if hasattr(model, 'predict_proba') else None
-
-    result = {
-        "prediction": int(y_pred[0])
-    }
-
-    if y_proba is not None:
-        result["confidence"] = float(max(y_proba[0]))
-
-    return result
