@@ -6,7 +6,20 @@ the JSON response. If the backend is unavailable, it returns a mock response for
 import os
 import requests
 
+# Default backend URL (can override with ENV variable)
 API_BASE_URL = os.getenv("EEG_API_URL", "http://localhost:8000")
+
+def check_backend_health():
+    """Ping backend/health endpoint."""
+    try:
+        resp = requests.get(f"{API_BASE_URL}/health", timeout=3)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            return {"status": "offline"}
+    except requests.exceptions.RequestException:
+        return {"status": "offline"}
+
 
 def call_eeg_api(uploaded_file, timeout: int = 120):
     """
@@ -21,9 +34,10 @@ def call_eeg_api(uploaded_file, timeout: int = 120):
             dict: JSON response from backend if available.
                 Example:
                 {
+                    "backend_status": "production",
                     "fatigue_class": "alert",
                     "confidence": 0.92,
-                    "backend_status": "production",
+                    "filename": filename,
                     ...
                 }
 
