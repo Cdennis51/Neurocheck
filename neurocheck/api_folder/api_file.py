@@ -247,25 +247,11 @@ async def predict_eeg(file: UploadFile = File(...)):
     return result
 
 
-#Prediction endpoint
-@app.post('/predict/eeg')
-async def predict(file: UploadFile = File(...)):
-    # Read uploaded file as bytes and convert to DataFrame
-    contents = await file.read()
-    df = pd.read_csv(BytesIO(contents))
-=======
 
-
-
-
-    # Make predictions
-    #prediction = model.predict(df)
-=======
 # === Dummy Response Generator ===
 def create_dummy_response(filename: str, mode: str):
     """Generate dummy response for development/testing"""
-    dummy_classes = ["alert", "fatigued", "drowsy"]
-
+    dummy_classes = ["fatigued", "not"]
 
     return {
         "backend_status": f"development_mode_{mode}",

@@ -1,67 +1,64 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
+from xgboost import XGBClassifier
+import pickle
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import mlflow.xgboost
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.metrics import accuracy_score
-from neurocheck.ml_logic.registry import save_model
-
-def initialize_model(n_estimators=100, max_depth=20, n_jobs=-1, random_state=42, class_weight='balanced'):
-    model = RandomForestClassifier(
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        n_jobs=n_jobs,
-        random_state=random_state,
-        class_weight=class_weight
-        )
-    return model
 
 def train_model(X_train, y_train, model):
-    """
-    This function takes the preprocessed features and trains a model.
-    It then saves the model as a pickle file.
-    """
-    model = model.fit(X_train, y_train)
 
+    model.fit(X_train, y_train)
+
+
+def initialize_xgb_model(
+    n_estimators=100,
+    max_depth=5,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_alpha=0.5,
+    reg_lambda=1.0,
+    scale_pos_weight=1.0,
+    random_state=42
+):
+    model = XGBClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        reg_alpha=reg_alpha,
+        reg_lambda=reg_lambda,
+        scale_pos_weight=scale_pos_weight,
+        use_label_encoder=False,
+        eval_metric='logloss',
+        random_state=random_state
+    )
     return model
 
-def evaluate_model(model, X_test, y_test):
+
+
+# I think we can remove this from this module - it is in it's own python package predict_TT
+def predict(frontend_data_preprocessed, expected_shape=(1, 10), model_path="trained_model.pkl"):
     """
-    This function takes the trained model and evaluates it on X_test.
-    It returns the classification outcome and gives a classification report.
+    Predicts mental fatigue from preprocessed frontend input.
+
+    Parameters:
+    - frontend_data_preprocessed: np.array or pd.DataFrame of shape (1, n_features)
+    - expected_shape: shape to validate against
+    - model_path: path to the saved model
+
+    Returns:
+    - y_pred: predicted label
+    - y_proba (optional): probability of class 1 (if supported)
     """
-    y_pred = model.predict(X_test)
+    # Load model
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
 
-    print(classification_report(y_test,y_pred))
+    # Check shape
+    if frontend_data_preprocessed.shape != expected_shape:
+        print(f"[❌] Input shape mismatch. Expected {expected_shape}, got {frontend_data_preprocessed.shape}")
+        return None
 
-    return y_pred
-
-def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
-    """
-    This function takes the preprocessed user data and predicts mental fatigue using our model.
-    It returns a prediction and scoring metrics.
-    """
-    # Type check
-    if not isinstance(frontend_data_preprocessed, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame.")
-
-    #test shape of frontend_data_preprocessed
-    assert frontend_data_preprocessed.shape[0] == 1, "Preprocessed DataFrame must have exactly one row"
-
-    # TODO: maybe add feature check?
-
-    # predict
+    # Predict
     y_pred = model.predict(frontend_data_preprocessed)
-    y_proba = model.predict_proba(frontend_data_preprocessed) if hasattr(model, 'predict_proba') else None
-
-    result = {
-        "prediction": int(y_pred[0])
-    }
-
-    if y_proba is not None:
-        result["confidence"] = float(max(y_proba[0]))
-
-    return result
