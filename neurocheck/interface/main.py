@@ -44,5 +44,5 @@ def prediction_result(X_pred: pd.DataFrame = None) -> np.ndarray:
     return prediction
 
 if __name__ == '__main__':
-    preprocess()
+    preprocess_eeg_data()
     prediction_result()
