@@ -14,10 +14,26 @@ TestResults.xml
 
 ### Standard Development .gitignore
 
-# Byte-compiled / optimized / DLL files
+# Python: Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+
+# Python: Pytest cache
+.pytest_cache/
+
+# Python: Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Model weights / artifacts
+*.h5
+*.pkl
+*.joblib
+mlruns/
 
 # C extensions
 *.so
@@ -39,34 +55,24 @@ var/
 .installed.cfg
 *.egg
 
+# Environments, Secrets
+secrets.env
+*.key
+*.pem
+.env
+.env/
+.venv/
+env/
+ENV/
+venv/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Virtual environments
-venv/
-ENV/
-env/
-.env/
-.env
-.envrc
-
-# Pytest cache
-.pytest_cache/
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Streamlit cache and logs
-.streamlit/
-
 # IDEs and editors
 .vscode/
 .idea/
-
-# OS files
-.DS_Store
-Thumbs.db
 
 # Logs
 *.log
@@ -74,3 +80,10 @@ Thumbs.db
 # Misc
 *.bak
 *.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Streamlit cache and logs
+.streamlit/
