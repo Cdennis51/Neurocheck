@@ -9,17 +9,6 @@ def train_model(X_train, y_train, model):
     model.fit(X_train, y_train)
 
 
-
-
-
-
-
-
-
-
-
-
-
 def initialize_xgb_model(
     n_estimators=100,
     max_depth=5,
@@ -46,6 +35,9 @@ def initialize_xgb_model(
     )
     return model
 
+
+
+# I think we can remove this from this module - it is in it's own python package predict_TT
 def predict(frontend_data_preprocessed, expected_shape=(1, 10), model_path="trained_model.pkl"):
     """
     Predicts mental fatigue from preprocessed frontend input.
