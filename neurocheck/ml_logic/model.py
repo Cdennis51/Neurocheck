@@ -2,6 +2,7 @@ from xgboost import XGBClassifier
 import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import mlflow.xgboost
+import pandas as pd
 
 
 def train_model(X_train, y_train, model):
