@@ -6,7 +6,7 @@ This module implements a FastAPI backend for EEG fatigue prediction.
 
 Key Features:
 -------------
-1. **Health Check Endpoint (`/`)**
+1. **Health Check Endpoint (`/health`)**
    - Returns backend status, version, and availability of preprocessing/model components.
 
 2. **EEG Prediction Endpoint (`/predict/eeg`)**
@@ -73,7 +73,7 @@ def read_edf_to_dataframe(file_obj):
 # === Preprocessing Module Import ===
 # Attempt to import preprocessing components
 try:
-    from neurocheck.ml_logic.preprocess import preprocess_eeg_data as preprocess_eeg
+    from neurocheck.ml_logic.preprocess import preprocess_eeg_df as preprocess_eeg
     PREPROCESS_AVAILABLE = True
 
 # If it fails, set to False and log warning.
@@ -104,21 +104,23 @@ except ImportError as e:
 app = FastAPI(
     title="NeuroCheck Backend",
     description="EEG Fatigue Prediction Backend",
-    version="0.3.0"
+    version="0.4.0"
 )
 
 
 # === CORS Functionality for Independent Front End, Back End Communication ===
 # https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
+
+# Define Sources Assigned Full BackEnd API Calling Capabilities
+# Revisit removing localhost capabilities after successful debugged deployment
+ALLOWED_ORIGINS = [
+    "http://localhost:8501",  # local Streamlit dev
+    "https://neurocheck-frontend.streamlit.app/", # Deployed Streamlit App
+]
+
 app.add_middleware(
     CORSMiddleware,
-
-    # For development, allow all origins.
-    allow_origins=["*"],
-    # For production, specify and updated allowed origins.
-    # allow_origins=["https://your-frontend-url.com"],  # Replace with your frontend URL
-    # allow_origins=["http://localhost:8501"],  # For local
-
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
