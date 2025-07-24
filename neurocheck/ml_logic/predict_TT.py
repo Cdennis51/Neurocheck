@@ -2,6 +2,8 @@ import pandas as pd
 import mlflow.xgboost
 from preprocess import filter_to_eeg_channels
 
+
+# We can delete this file, it is all handled in api_MM.py
 def preprocess_input(file_path):
     # Load and filter raw CSV
     df = pd.read_csv(file_path)
