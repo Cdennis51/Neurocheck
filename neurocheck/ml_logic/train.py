@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from preprocess import preprocess_eeg_data, filter_to_eeg_channels
-from neurocheck.ml_logic.model import initialize_xgb_model, train_model, evaluate_model
+from neurocheck.ml_logic.model import initialize_xgb_model, train_model
 from registry import save_results, save_model
 
 # Config

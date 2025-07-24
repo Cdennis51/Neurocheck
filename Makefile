@@ -26,6 +26,9 @@ run_train_model: run_preprocess_for_training
 run_evaluate_model:
 	python -c 'from neurocheck.ml_logic.model import evaluate_model; evaluate_model()'
 
+run_retrieve_model:
+	python -c 'from neurocheck.ml_logic.registry import retrieve_model; retrieve_model()'
+
 #################### PACKAGE ACTIONS ###################
 reinstall_package:
 	@pip uninstall -y neurocheck || :
