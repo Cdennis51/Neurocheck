@@ -76,7 +76,7 @@ def read_edf_to_dataframe(file_obj):
 # === Preprocessing Module Import ===
 # Attempt to import preprocessing components
 try:
-    from neurocheck.ml_logic.preprocess import preprocess_eeg_data as preprocess_eeg
+    from neurocheck.ml_logic.preprocess import preprocess_eeg_df as preprocess_eeg
     PREPROCESS_AVAILABLE = True
 
 # If it fails, set to False and log warning.
