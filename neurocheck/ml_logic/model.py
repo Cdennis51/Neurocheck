@@ -2,6 +2,7 @@ from xgboost import XGBClassifier
 import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import mlflow.xgboost
+import pandas as pd
 
 
 def train_model(X_train, y_train, model):
@@ -46,6 +47,8 @@ def initialize_xgb_model(
     )
     return model
 
+
+# We can remove this predict function, as the predict is directly running in api_file_MM.py
 def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
     """
     This function takes the preprocessed user data and predicts mental fatigue using our model.
