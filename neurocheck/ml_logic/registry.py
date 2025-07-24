@@ -105,7 +105,7 @@ def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
 
             return None
 
-        model = mlflow.tensorflow.load_model(model_uri=model_uri)
+        model = mlflow.tensorflow.load_model(model_uri=model_uri) # please can you update as we are no longer using tensorflow?
 
         print("✅ Model loaded from MLflow")
         return model
