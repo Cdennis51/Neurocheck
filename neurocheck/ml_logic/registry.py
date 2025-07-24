@@ -5,7 +5,7 @@ import pickle
 
 from colorama import Fore, Style
 
-from params import *
+from neurocheck.ml_logic.params import *
 import mlflow
 import mlflow.xgboost
 import tempfile
@@ -46,17 +46,32 @@ def save_results(params: dict, metrics: dict) -> None:
 
 def save_model(model):
     mlflow.set_experiment("neurocheck_experiment")
-    with mlflow.start_run():
-        mlflow.log_params(model.get_params())
-        # Save the model to a temp directory
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            local_model_path = f"{tmp_dir}/model"
-            mlflow.xgboost.save_model(model, path=local_model_path)
-            # Log it as an artifact manually
-            mlflow.log_artifacts(local_model_path, artifact_path="model")
-        print("Model logged to MLflow as an artifact.")
 
-def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
+    with mlflow.start_run():
+        # Log model hyperparameters
+        mlflow.log_params(model.get_params())
+
+        # Log the model properly using mlflow.xgboost
+        mlflow.xgboost.log_model(
+            xgb_model=model,
+            artifact_path ="model",
+            registered_model_name="neurocheck_model"
+        )
+
+        # Transition to production
+        client = MlflowClient()
+        latest_version = client.get_latest_versions("neurocheck_model", stages=["None"])[0].version
+        client.transition_model_version_stage(
+            name="neurocheck_model",
+            version=latest_version,
+            stage="Production",
+            archive_existing_versions=True
+        )
+
+
+        print("Model logged and saved to MLflow.")
+
+def retrieve_model(stage="Production"):
     """
     Return a saved model:
     - locally (latest one in alphabetical order)
@@ -105,7 +120,7 @@ def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
 
             return None
 
-        model = mlflow.tensorflow.load_model(model_uri=model_uri) # please can you update as we are no longer using tensorflow?
+        model = mlflow.pyfunc.load_model(model_uri=model_uri)
 
         print("✅ Model loaded from MLflow")
         return model
