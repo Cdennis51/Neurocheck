@@ -43,7 +43,10 @@ import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+
+####### Added imports ##############
 from xgboost import XGBClassifier
+
 
 # === Configure Logging ===
 logging.basicConfig(
@@ -104,7 +107,7 @@ except ImportError as e:
 app = FastAPI(
     title="NeuroCheck Backend",
     description="EEG Fatigue Prediction Backend",
-    version="0.3.0"
+    version="0.1.0"
 )
 
 
@@ -146,7 +149,7 @@ if MODEL_AVAILABLE:
 
 
 # === Health Check Endpoint, Check If Backend Online===
-@app.get("/health")
+@app.get("/")
 def index():
     """
     Health check endpoint for the NeuroCheck backend.
@@ -252,7 +255,7 @@ async def predict_eeg(file: UploadFile = File(...)):
 # === Dummy Response Generator ===
 def create_dummy_response(filename: str, mode: str):
     """Generate dummy response for development/testing"""
-    dummy_classes = ["fatigued", "not fatigued"]
+    dummy_classes = ["fatigued", "not"]
 
     return {
         "backend_status": f"development_mode_{mode}",
@@ -264,4 +267,4 @@ def create_dummy_response(filename: str, mode: str):
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
-    uvicorn.run("neurocheck.api_file:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("neurocheck.api_folder.api_file_MM:app", host="0.0.0.0", port=8000, reload=True)
