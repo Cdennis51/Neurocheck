@@ -6,8 +6,10 @@ the JSON response. If the backend is unavailable, it returns a mock response for
 import os
 import requests
 
+
 # Default backend URL (can override with ENV variable)
-API_BASE_URL = os.getenv("EEG_API_URL", "http://localhost:8000")
+
+API_BASE_URL = os.getenv("GCP_URL")
 
 def check_backend_health():
     """Ping backend/health endpoint."""
