@@ -96,7 +96,8 @@ def retrieve_model(stage="Production"):
 
         print(Fore.BLUE + f"\nLoad latest model from disk..." + Style.RESET_ALL)
 
-        latest_model = mlflow.pyfunc.load_model(most_recent_model_path_on_disk)
+        # ✅ Load as XGBoost model, not PyFunc
+        latest_model = mlflow.xgboost.load_model(most_recent_model_path_on_disk)
 
         print("✅ Model loaded from local disk")
 
@@ -105,8 +106,6 @@ def retrieve_model(stage="Production"):
     elif MODEL_TARGET == "mlflow":
         print(Fore.BLUE + f"\nLoad [{stage}] model from MLflow..." + Style.RESET_ALL)
 
-        # Load model from MLflow
-        model = None
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         client = MlflowClient()
 
@@ -120,10 +119,11 @@ def retrieve_model(stage="Production"):
 
             return None
 
-        model = mlflow.pyfunc.load_model(model_uri=model_uri)
+        # ✅ Load as XGBoost model, not PyFunc
+        latest_model = mlflow.xgboost.load_model(model_uri)
 
         print("✅ Model loaded from MLflow")
-        return model
+        return latest_model
     else:
         return None
 

@@ -13,6 +13,7 @@ sample_data/
 dummy_sample_eeg.csv
 
 # Environments, Secrets.env
+.DS_Store
 *.env
 
 # Git & IDE artifacts
@@ -20,9 +21,11 @@ dummy_sample_eeg.csv
 .gitignore
 .vscode/
 .idea/
-.DS_Store
 
 # Jupyter Notebooks and Any Documentation
 *.ipynb
 notebooks/
 docs/
+
+# Dev dependencies
+requirements-dev.txt
