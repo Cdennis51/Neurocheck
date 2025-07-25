@@ -15,7 +15,9 @@ def filter_to_eeg_channels(df: pd.DataFrame) -> pd.DataFrame:
     - EEG-only DataFrame
     """
     columns_to_drop = ['BVP', 'EDA', 'TEMP', 'AccX', 'AccY', 'AccZ', 'HR', 'class']
-    return df.drop(columns=columns_to_drop, errors='ignore')
+    filtered_df = df.drop(columns=columns_to_drop, errors='ignore')
+    filtered_df.columns = filtered_df.columns.str.strip()
+    return filtered_df
 
 def preprocess_eeg_csv(csv_path: str) -> pd.DataFrame:
     """
