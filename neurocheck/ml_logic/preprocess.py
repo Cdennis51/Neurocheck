@@ -1,7 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-
 def filter_to_eeg_channels(df: pd.DataFrame) -> pd.DataFrame:
     """
     Drops non-EEG physiological signals from the MEFAR MID dataset.
@@ -47,6 +46,7 @@ def preprocess_eeg_df(raw_eeg: pd.DataFrame) -> pd.DataFrame:
     return scaled_eeg
 
 # def preprocess_eeg_data(csv_path): # This takes raw CSV file from one of the sessions either morning or night and scales - preparing the data for XGBoost.
+
 
     # Load the CSV
     raw_eeg = pd.read_csv(csv_path)

@@ -96,7 +96,7 @@ except ImportError as e:
 
 if MODEL_AVAILABLE:
     try:
-        eeg_model = ml_load_eeg_model()
+        eeg_model = ml_load_eeg_model(stage="Production")
         if eeg_model is None:
             logging.warning("Model loaded but is None.")
             MODEL_LOADED = False
@@ -254,15 +254,17 @@ async def predict_eeg(file: UploadFile = File(...)):
     if MODEL_LOADED and eeg_model:
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
-            prediction = eeg_model.predict(proc_eeg_df)
-            probability = float(eeg_model.predict_proba(proc_eeg_df)[0,1])
+            proba = eeg_model.predict_proba(proc_eeg_df)[0, 1] #
+            prediction = int(proba > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
             result = {
                 "backend_status": "production",
-                "fatigue_class": str(prediction[0]),
-                "confidence": float(probability),
-                "filename": file.filename,
+                "fatigue_class": str(prediction),
+                "confidence": round(proba if prediction == 1 else 1 - proba, 4), #Calculate's the confidence in the predicted class, not just fatigued.
+                "filename": filename,
                 "preprocessing_used": preprocessing_success
             }
+
+
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
@@ -270,7 +272,8 @@ async def predict_eeg(file: UploadFile = File(...)):
             #result = create_dummy_response(file.filename, "prediction_error")
 
     else:
-        result = create_dummy_response(file.filename, "development")
+        result = None
+        #result = create_dummy_response(file.filename, "development")
 
     return result
 
