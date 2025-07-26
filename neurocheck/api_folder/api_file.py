@@ -96,7 +96,7 @@ except ImportError as e:
 
 if MODEL_AVAILABLE:
     try:
-        eeg_model = ml_load_eeg_model()
+        eeg_model = ml_load_eeg_model(stage="Production")
         if eeg_model is None:
             logging.warning("Model loaded but is None.")
             MODEL_LOADED = False
@@ -259,8 +259,8 @@ async def predict_eeg(file: UploadFile = File(...)):
             result = {
                 "backend_status": "production",
                 "fatigue_class": str(prediction),
-                "confidence": round(proba, if prediction == 1 else 1 - proba, 4) # Calculate's the confidence in the predicted class, not just fatigued.
-                "filename": file.filename,
+                "confidence": round(proba if prediction == 1 else 1 - proba, 4), #Calculate's the confidence in the predicted class, not just fatigued.
+                "filename": filename,
                 "preprocessing_used": preprocessing_success
             }
 
@@ -272,7 +272,8 @@ async def predict_eeg(file: UploadFile = File(...)):
             #result = create_dummy_response(file.filename, "prediction_error")
 
     else:
-        result = create_dummy_response(file.filename, "development")
+        result = None
+        #result = create_dummy_response(file.filename, "development")
 
     return result
 
