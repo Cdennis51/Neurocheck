@@ -9,7 +9,7 @@ st.set_page_config(page_title="EEG Fatigue Detector", layout="centered")
 st.title("NeuroCheck EEG Fatigue Detector")
 
 # Display instructions to user
-uploaded_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv", "edf"])
+uploaded_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv"])
 
 if uploaded_file:
     # Display user upload status
