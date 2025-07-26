@@ -1,7 +1,5 @@
 from xgboost import XGBClassifier
-import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import mlflow.xgboost
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV # Additional step in the initialize xgb boost.
 
@@ -36,7 +34,7 @@ def initialize_xgb_model(
         eval_metric='logloss',
         random_state=random_state
     )
-    model  = CalibratedClassifierCV(model, method='isotonic', cv=3)
+   #model  = CalibratedClassifierCV(model, method='isotonic', cv=3)
     # improves the probability estimate by calibrating using cross-validation.
     return model
 

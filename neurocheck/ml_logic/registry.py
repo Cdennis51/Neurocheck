@@ -1,57 +1,36 @@
 import glob
 import os
-import time
-import pickle
 
 from colorama import Fore, Style
 
 from neurocheck.ml_logic.params import *
 import mlflow
 import mlflow.xgboost
-import tempfile
 from mlflow.tracking import MlflowClient
-from mlflow.pyfunc import PyFuncModel
 
-def save_results(params: dict, metrics: dict) -> None:
-    """
-    Persist params & metrics locally on the hard drive at
-    "{LOCAL_REGISTRY_PATH}/params/{current_timestamp}.pickle"
-    "{LOCAL_REGISTRY_PATH}/metrics/{current_timestamp}.pickle"
-    - (unit 03 only) if MODEL_TARGET='mlflow', also persist them on MLflow
-    """
-    if MODEL_TARGET == "mlflow":
-        if params is not None:
-            mlflow.log_params(params)
-        if metrics is not None:
-            mlflow.log_metrics(metrics)
-        print("✅ Results saved on MLflow")
-
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-    # Save params locally
-    if params is not None:
-        params_path = os.path.join(LOCAL_REGISTRY_PATH, "params", timestamp + ".pickle")
-        with open(params_path, "wb") as file:
-            pickle.dump(params, file)
-
-    # Save metrics locally
-    if metrics is not None:
-        metrics_path = os.path.join(LOCAL_REGISTRY_PATH, "metrics", timestamp + ".pickle")
-        with open(metrics_path, "wb") as file:
-            pickle.dump(metrics, file)
-
-    print("✅ Results saved locally")
-
+def save_results(params: dict, metrics: dict):
+    import mlflow
+    mlflow.set_experiment("neurocheck_experiment")  # Set correct experiment by name
+    with mlflow.start_run():
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+        print(":white_check_mark: Results logged to MLflow")
     return None
 
 def save_model(model):
     mlflow.set_experiment("neurocheck_experiment")
 
     with mlflow.start_run():
-        # Log model hyperparameters
-        mlflow.log_params(model)
+        for k, v in model.get_params().items():
+            val_str = str(v)
+            if len(val_str) <= 500:
+                mlflow.log_param(k, v)
+            else:
+                print(f"Skipping param '{k}': too long or complex")
 
-        mlflow.xgboost.log_model(model, artifact_path="model", registered_model_name="neurocheck_model")
+        mlflow.xgboost.log_model(model,
+                                 artifact_path="model",
+                                 registered_model_name="neurocheck_model")
 
         print("✅ Model saved to MLflow")
 
