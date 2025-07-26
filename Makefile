@@ -19,9 +19,8 @@ run_preprocess_for_training:
 	@echo "Running preprocessing on: ${DATA_PATH}"
 	python -c 'from neurocheck.ml_logic.preprocess import preprocess_eeg_data; preprocess_eeg_data("${DATA_PATH}")'
 
-run_train_model: run_preprocess_for_training
-	@echo "Training model with data from: ${PROCESSED_PATH}"
-	python -c 'from neurocheck.ml_logic.model import train_model, initialize_model; train_model("${PROCESSED_PATH}/train", "${PROCESSED_PATH}/val", initialize_model())'
+run_train_model:
+	python neurocheck/ml_logic/train.py
 
 run_evaluate_model:
 	python -c 'from neurocheck.ml_logic.model import evaluate_model; evaluate_model()'

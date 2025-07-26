@@ -49,14 +49,11 @@ def save_model(model):
 
     with mlflow.start_run():
         # Log model hyperparameters
-        mlflow.log_params(model.get_params())
+        mlflow.log_params(model)
 
-        # Log the model properly using mlflow.xgboost
-        mlflow.xgboost.log_model(
-            xgb_model=model,
-            artifact_path ="model",
-            registered_model_name="neurocheck_model"
-        )
+        mlflow.xgboost.log_model(model, artifact_path="model", registered_model_name="neurocheck_model")
+
+        print("✅ Model saved to MLflow")
 
         # Transition to production
         client = MlflowClient()
@@ -67,7 +64,6 @@ def save_model(model):
             stage="Production",
             archive_existing_versions=True
         )
-
 
         print("Model logged and saved to MLflow.")
 
