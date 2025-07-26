@@ -5,7 +5,7 @@ from neurocheck.ml_logic.preprocess import preprocess_eeg_data
 from neurocheck.ml_logic.model import predict
 from neurocheck.ml_logic.registry import save_results, save_model, retrieve_model
 
-
+# Since api_MM.py covers these functions, I think we can delete main.py entirely.
 def preprocess_eeg_data(frontend_data: pd.DataFrame) -> pd.DataFrame:
     """
     Takes user input and preprocesses it for prediction.
@@ -44,5 +44,5 @@ def prediction_result(X_pred: pd.DataFrame = None) -> np.ndarray:
     return prediction
 
 if __name__ == '__main__':
-    preprocess()
+    preprocess_eeg_data()
     prediction_result()

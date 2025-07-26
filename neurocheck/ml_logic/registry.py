@@ -1,62 +1,53 @@
 import glob
 import os
-import time
-import pickle
 
 from colorama import Fore, Style
 
 from params import *
 import mlflow
 import mlflow.xgboost
-import tempfile
+
 from mlflow.tracking import MlflowClient
-from mlflow.pyfunc import PyFuncModel
 
-def save_results(params: dict, metrics: dict) -> None:
-    """
-    Persist params & metrics locally on the hard drive at
-    "{LOCAL_REGISTRY_PATH}/params/{current_timestamp}.pickle"
-    "{LOCAL_REGISTRY_PATH}/metrics/{current_timestamp}.pickle"
-    - (unit 03 only) if MODEL_TARGET='mlflow', also persist them on MLflow
-    """
-    if MODEL_TARGET == "mlflow":
-        if params is not None:
-            mlflow.log_params(params)
-        if metrics is not None:
-            mlflow.log_metrics(metrics)
-        print("✅ Results saved on MLflow")
-
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-    # Save params locally
-    if params is not None:
-        params_path = os.path.join(LOCAL_REGISTRY_PATH, "params", timestamp + ".pickle")
-        with open(params_path, "wb") as file:
-            pickle.dump(params, file)
-
-    # Save metrics locally
-    if metrics is not None:
-        metrics_path = os.path.join(LOCAL_REGISTRY_PATH, "metrics", timestamp + ".pickle")
-        with open(metrics_path, "wb") as file:
-            pickle.dump(metrics, file)
-
-    print("✅ Results saved locally")
-
+def save_results(params: dict, metrics: dict):
+    import mlflow
+    mlflow.set_experiment("neurocheck_experiment")  # Set correct experiment by name
+    with mlflow.start_run():
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+        print(":white_check_mark: Results logged to MLflow")
     return None
 
 def save_model(model):
     mlflow.set_experiment("neurocheck_experiment")
+    
     with mlflow.start_run():
-        mlflow.log_params(model.get_params())
-        # Save the model to a temp directory
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            local_model_path = f"{tmp_dir}/model"
-            mlflow.xgboost.save_model(model, path=local_model_path)
-            # Log it as an artifact manually
-            mlflow.log_artifacts(local_model_path, artifact_path="model")
-        print("Model logged to MLflow as an artifact.")
+        for k, v in model.get_params().items():
+            val_str = str(v)
+            if len(val_str) <= 500:
+                mlflow.log_param(k, v)
+            else:
+                print(f"Skipping param '{k}': too long or complex")
 
-def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
+        mlflow.xgboost.log_model(model,
+                                 artifact_path="model",
+                                 registered_model_name="neurocheck_model")
+
+        print("✅ Model saved to MLflow")
+
+        # Transition to production
+        client = MlflowClient()
+        latest_version = client.get_latest_versions("neurocheck_model", stages=["None"])[0].version
+        client.transition_model_version_stage(
+            name="neurocheck_model",
+            version=latest_version,
+            stage="Production",
+            archive_existing_versions=True
+        )
+
+        print("Model logged and saved to MLflow.")
+
+def retrieve_model(stage="Production"):
     """
     Return a saved model:
     - locally (latest one in alphabetical order)
@@ -81,7 +72,8 @@ def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
 
         print(Fore.BLUE + f"\nLoad latest model from disk..." + Style.RESET_ALL)
 
-        latest_model = mlflow.pyfunc.load_model(most_recent_model_path_on_disk)
+        # ✅ Load as XGBoost model, not PyFunc
+        latest_model = mlflow.xgboost.load_model(most_recent_model_path_on_disk)
 
         print("✅ Model loaded from local disk")
 
@@ -90,8 +82,6 @@ def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
     elif MODEL_TARGET == "mlflow":
         print(Fore.BLUE + f"\nLoad [{stage}] model from MLflow..." + Style.RESET_ALL)
 
-        # Load model from MLflow
-        model = None
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         client = MlflowClient()
 
@@ -105,10 +95,11 @@ def retrieve_model(stage="Production") -> mlflow.pyfunc.PyFuncModel:
 
             return None
 
-        model = mlflow.tensorflow.load_model(model_uri=model_uri)
+        # ✅ Load as XGBoost model, not PyFunc
+        latest_model = mlflow.xgboost.load_model(model_uri)
 
         print("✅ Model loaded from MLflow")
-        return model
+        return latest_model
     else:
         return None
 
