@@ -1,12 +1,13 @@
 from xgboost import XGBClassifier
-import pickle
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import mlflow.xgboost
-
+import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV # Additional step in the initialize xgb boost.
 
 def train_model(X_train, y_train, model):
 
     model.fit(X_train, y_train)
+
+
 
 
 def initialize_xgb_model(
@@ -33,23 +34,16 @@ def initialize_xgb_model(
         eval_metric='logloss',
         random_state=random_state
     )
+   #model  = CalibratedClassifierCV(model, method='isotonic', cv=3)
+    # improves the probability estimate by calibrating using cross-validation.
     return model
 
 
 
-# I think we can remove this from this module - it is in it's own python package predict_TT
-def predict(frontend_data_preprocessed, expected_shape=(1, 10), model_path="trained_model.pkl"):
-    """
-    Predicts mental fatigue from preprocessed frontend input.
 
-    Parameters:
-    - frontend_data_preprocessed: np.array or pd.DataFrame of shape (1, n_features)
-    - expected_shape: shape to validate against
-    - model_path: path to the saved model
 
-    Returns:
-    - y_pred: predicted label
-    - y_proba (optional): probability of class 1 (if supported)
+# We can remove this predict function, as the predict is directly running in api_file_MM.py
+#def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
     """
     # Load model
     with open(model_path, 'rb') as f:

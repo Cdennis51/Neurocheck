@@ -1,11 +1,13 @@
-# UI only
+# UI Framework
 streamlit==1.28.0
-pandas==2.0.3
-numpy==1.24.3
 plotly==5.15.0
 
 # API communication
 requests==2.31.0
 
-## Build tools (safe on Python 3.10+)
+# Build tools (safe on Python 3.10+)
 setuptools==68.0.0
+
+# Data Handling
+pandas==2.0.3
+numpy==1.24.3
