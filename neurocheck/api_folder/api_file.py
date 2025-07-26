@@ -254,15 +254,17 @@ async def predict_eeg(file: UploadFile = File(...)):
     if MODEL_LOADED and eeg_model:
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
-            prediction = eeg_model.predict(proc_eeg_df)
-            probability = float(eeg_model.predict_proba(proc_eeg_df)[0,1])
+            proba = eeg_model.predict_proba(proc_eeg_df)[0, 1] #
+            prediction = int(proba > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
             result = {
                 "backend_status": "production",
-                "fatigue_class": str(prediction[0]),
-                "confidence": float(probability),
+                "fatigue_class": str(prediction),
+                "confidence": round(proba,4), # models confidence in class 1.
                 "filename": file.filename,
                 "preprocessing_used": preprocessing_success
             }
+
+
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
