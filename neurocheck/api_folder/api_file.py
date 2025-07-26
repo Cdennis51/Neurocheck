@@ -259,7 +259,7 @@ async def predict_eeg(file: UploadFile = File(...)):
             result = {
                 "backend_status": "production",
                 "fatigue_class": str(prediction),
-                "confidence": round(proba,4), # models confidence in class 1.
+                "confidence": round(proba, if prediction == 1 else 1 - proba, 4) # Calculate's the confidence in the predicted class, not just fatigued.
                 "filename": file.filename,
                 "preprocessing_used": preprocessing_success
             }
