@@ -37,7 +37,7 @@ def initialize_xgb_model(
         random_state=random_state
     )
     model  = CalibratedClassifierCV(model, method='isotonic', cv=3)
-
+    # improves the probability estimate by calibrating using cross-validation.
     return model
 
 
