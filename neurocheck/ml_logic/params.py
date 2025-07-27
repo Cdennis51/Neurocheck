@@ -25,7 +25,6 @@ Variables loaded:
 
 Raises:
 - ValueError: if any validated environment variable has an invalid value.
-
 """
 import os
 # Load .env if detected in current environment
