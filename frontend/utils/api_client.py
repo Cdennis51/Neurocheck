@@ -68,7 +68,10 @@ def call_eeg_api(uploaded_file, timeout: int = 120):
 
     try:
         # Send to backend prediction endpoint
-        response = requests.post(f"{BACKEND_API}/predict/eeg", files=files, timeout=timeout)
+        headers = {
+        "Authorization": f"Bearer {st.secrets['GCLOUD_ACCESS_TOKEN']}"
+        }
+        response = requests.post(f"{BACKEND_API}/predict/eeg", files=files, headers=headers, timeout=timeout)
         response.raise_for_status() # Raise HTTP failures
         return response.json()      # Return JSON response from API
 
