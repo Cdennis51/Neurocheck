@@ -19,7 +19,7 @@ def check_backend_health():
         else:
             return {"status": "offline"}
     except requests.exceptions.RequestException:
-        return {"status": "offline"}
+        return {"status": "offline with request exception"}
 
 
 def call_eeg_api(uploaded_file, timeout: int = 120):
@@ -79,7 +79,7 @@ def call_eeg_api(uploaded_file, timeout: int = 120):
     except requests.exceptions.RequestException:
         # Backend unreachable → return dummy response
         return {
-            "fatigue_class": "Fatigued (Demo)",
+            "fatigue_class": "Fatigued (We're having issues connecting to our server at the moment)",
             "confidence": 0.87,
             "backend_status": "offline"
         }

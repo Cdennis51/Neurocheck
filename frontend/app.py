@@ -25,8 +25,12 @@ if uploaded_file:
 
     # Display prediction result
     if "fatigue_class" in result:
-        st.success(f"Prediction: **{result['fatigue_class']}**")
+        # Convert numeric string to readable label
+        fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
+        display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+
+        st.success(f"Prediction: **{display_result}**")
         if "confidence" in result:
-            st.write(f"Confidence: {result['confidence']:.2f}")
+            st.write(f"Confidence Level: {result['confidence']:.2f}")
     else:
         st.error("❌ Could not get prediction.")
