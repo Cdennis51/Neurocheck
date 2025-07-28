@@ -1,7 +1,7 @@
 # API Framework
 fastapi==0.95.2
 pydantic==1.10.7
-uvicorn[standard]==0.22.0
+uvicorn==0.22.0
 python-multipart==0.0.6
 
 # API Communication
@@ -17,8 +17,15 @@ colorama==0.4.6
 python-dotenv==1.0.0
 
 # ML & Data Handling
-numpy==1.24.3
-pandas==2.0.3
-scikit-learn==1.2.2
-mlflow==2.3.1
-xgboost
+numpy==1.26.4
+pandas==2.3.1
+scikit-learn==1.7.0
+xgboost==3.0.2
+mlflow==2.8.1
+
+# Data Serialization & System Utils
+protobuf==3.20.3
+psutil==7.0.0
+
+# Scientific Computing
+scipy==1.15.3

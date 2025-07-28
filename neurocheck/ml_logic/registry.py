@@ -1,62 +1,77 @@
+"""
+MLflow Utilities for Neurocheck Project
+
+This module provides helper functions for:
+- Logging training parameters and metrics to MLflow.
+- Saving and versioning XGBoost models in MLflow.
+- Retrieving models from local storage or MLflow registry.
+- Wrapping functions with MLflow autologging for TensorFlow.
+
+Dependencies:
+    - glob
+    - os
+    - colorama
+    - mlflow
+    - mlflow.xgboost
+    - params.py (should define MODEL_TARGET, LOCAL_REGISTRY_PATH, MLFLOW_TRACKING_URI, MLFLOW_MODEL_NAME, MLFLOW_EXPERIMENT)
+
+Usage:
+    from mlflow_utils import save_results, save_model, retrieve_model, mlflow_run
+"""
 import glob
 import os
-import time
-import pickle
-
 from colorama import Fore, Style
-
-from neurocheck.ml_logic.params import *
+from ml_logic.params import *
 import mlflow
 import mlflow.xgboost
-import tempfile
 from mlflow.tracking import MlflowClient
-from mlflow.pyfunc import PyFuncModel
 
-def save_results(params: dict, metrics: dict) -> None:
+def save_results(params: dict, metrics: dict):
     """
-    Persist params & metrics locally on the hard drive at
-    "{LOCAL_REGISTRY_PATH}/params/{current_timestamp}.pickle"
-    "{LOCAL_REGISTRY_PATH}/metrics/{current_timestamp}.pickle"
-    - (unit 03 only) if MODEL_TARGET='mlflow', also persist them on MLflow
+    Log training parameters and metrics to MLflow.
+
+    Args:
+        params (dict): Dictionary of hyperparameters used for training.
+        metrics (dict): Dictionary of evaluation metrics (e.g., accuracy, loss).
+
+    Returns:
+        None
     """
-    if MODEL_TARGET == "mlflow":
-        if params is not None:
-            mlflow.log_params(params)
-        if metrics is not None:
-            mlflow.log_metrics(metrics)
-        print("✅ Results saved on MLflow")
-
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-    # Save params locally
-    if params is not None:
-        params_path = os.path.join(LOCAL_REGISTRY_PATH, "params", timestamp + ".pickle")
-        with open(params_path, "wb") as file:
-            pickle.dump(params, file)
-
-    # Save metrics locally
-    if metrics is not None:
-        metrics_path = os.path.join(LOCAL_REGISTRY_PATH, "metrics", timestamp + ".pickle")
-        with open(metrics_path, "wb") as file:
-            pickle.dump(metrics, file)
-
-    print("✅ Results saved locally")
-
+    mlflow.set_experiment("neurocheck_experiment")  # Set correct experiment by name
+    with mlflow.start_run():
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+        print("Results logged to MLflow")
     return None
 
 def save_model(model):
+    """
+    Save an XGBoost model to MLflow and transition it to the Production stage.
+
+    Logs all model parameters (unless too long) and registers the model
+    in the MLflow Model Registry as `neurocheck_model`. If a previous
+    version exists in Production, it will be archived.
+
+    Args:
+        model: Trained XGBoost model instance.
+
+    Returns:
+        None
+    """
     mlflow.set_experiment("neurocheck_experiment")
-
     with mlflow.start_run():
-        # Log model hyperparameters
-        mlflow.log_params(model.get_params())
+        for k, v in model.get_params().items():
+            val_str = str(v)
+            if len(val_str) <= 500:
+                mlflow.log_param(k, v)
+            else:
+                print(f"Skipping param '{k}': too long or complex")
 
-        # Log the model properly using mlflow.xgboost
-        mlflow.xgboost.log_model(
-            xgb_model=model,
-            artifact_path ="model",
-            registered_model_name="neurocheck_model"
-        )
+        mlflow.xgboost.log_model(model,
+                                 artifact_path="model",
+                                 registered_model_name="neurocheck_model")
+
+        print("✅ Model saved to MLflow")
 
         # Transition to production
         client = MlflowClient()
@@ -68,7 +83,6 @@ def save_model(model):
             archive_existing_versions=True
         )
 
-
         print("Model logged and saved to MLflow.")
 
 def retrieve_model(stage="Production"):
@@ -79,11 +93,10 @@ def retrieve_model(stage="Production"):
     - or from MLFLOW (by "stage") if MODEL_TARGET=='mlflow' --> for unit 03 only
 
     Return None (but do not Raise) if no model is found
-
     """
 
     if MODEL_TARGET == "local":
-        print(Fore.BLUE + f"\nLoad latest model from local registry..." + Style.RESET_ALL)
+        print(Fore.BLUE + "\nLoad latest model from local registry..." + Style.RESET_ALL)
 
         # Get the latest model version name by the timestamp on disk
         local_model_directory = os.path.join(LOCAL_REGISTRY_PATH, "models")
@@ -94,7 +107,7 @@ def retrieve_model(stage="Production"):
 
         most_recent_model_path_on_disk = sorted(local_model_paths)[-1]
 
-        print(Fore.BLUE + f"\nLoad latest model from disk..." + Style.RESET_ALL)
+        print(Fore.BLUE + "\nLoad latest model from disk..." + Style.RESET_ALL)
 
         # ✅ Load as XGBoost model, not PyFunc
         latest_model = mlflow.xgboost.load_model(most_recent_model_path_on_disk)
@@ -116,7 +129,6 @@ def retrieve_model(stage="Production"):
             assert model_uri is not None
         except:
             print(f"\n❌ No model found with name {MLFLOW_MODEL_NAME} in stage {stage}")
-
             return None
 
         # ✅ Load as XGBoost model, not PyFunc
