@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := default
 include .env
 export
+
 #################### MODEL ###################
 run_preprocess_for_training:
 	@echo "Running preprocessing on: ${DATA_PATH}"

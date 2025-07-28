@@ -3,9 +3,10 @@ import os
 
 from colorama import Fore, Style
 
-from neurocheck.ml_logic.params import *
+from params import *
 import mlflow
 import mlflow.xgboost
+
 from mlflow.tracking import MlflowClient
 
 def save_results(params: dict, metrics: dict):
@@ -19,7 +20,7 @@ def save_results(params: dict, metrics: dict):
 
 def save_model(model):
     mlflow.set_experiment("neurocheck_experiment")
-
+    
     with mlflow.start_run():
         for k, v in model.get_params().items():
             val_str = str(v)
