@@ -3,24 +3,23 @@ This module provides a utility function to send EEG data files to a FastAPI back
 for fatigue prediction. It attempts to contact the `/predict/eeg` endpoint and returns
 the JSON response. If the backend is unavailable, it returns a mock response for demo purposes.
 """
-import os
 import requests
 
 
 # Default backend URL (can override with ENV variable)
-
-API_BASE_URL = os.getenv("GCP_URL")
+import streamlit as st
+BACKEND_API = st.secrets["GCP_URL"]
 
 def check_backend_health():
     """Ping backend/health endpoint."""
     try:
-        resp = requests.get(f"{API_BASE_URL}/health", timeout=3)
+        resp = requests.get(f"{BACKEND_API}/health", timeout=3)
         if resp.status_code == 200:
             return resp.json()
         else:
             return {"status": "offline"}
     except requests.exceptions.RequestException:
-        return {"status": "offline"}
+        return {"status": "offline with request exception"}
 
 
 def call_eeg_api(uploaded_file, timeout: int = 120):
@@ -69,7 +68,10 @@ def call_eeg_api(uploaded_file, timeout: int = 120):
 
     try:
         # Send to backend prediction endpoint
-        response = requests.post(f"{API_BASE_URL}/predict/eeg", files=files, timeout=timeout)
+        headers = {
+        "Authorization": f"Bearer {st.secrets['GCLOUD_ACCESS_TOKEN']}"
+        }
+        response = requests.post(f"{BACKEND_API}/predict/eeg", files=files, headers=headers, timeout=timeout)
         response.raise_for_status() # Raise HTTP failures
         return response.json()      # Return JSON response from API
 
@@ -80,7 +82,7 @@ def call_eeg_api(uploaded_file, timeout: int = 120):
     except requests.exceptions.RequestException:
         # Backend unreachable → return dummy response
         return {
-            "fatigue_class": "Fatigued (Demo)",
+            "fatigue_class": "Fatigued (We're having issues connecting to our server at the moment)",
             "confidence": 0.87,
             "backend_status": "offline"
         }

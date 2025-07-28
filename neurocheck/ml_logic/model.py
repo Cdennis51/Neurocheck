@@ -8,8 +8,6 @@ def train_model(X_train, y_train, model):
     model.fit(X_train, y_train)
 
 
-
-
 def initialize_xgb_model(
     n_estimators=100,
     max_depth=5,
@@ -35,24 +33,5 @@ def initialize_xgb_model(
         random_state=random_state
     )
    #model  = CalibratedClassifierCV(model, method='isotonic', cv=3)
-    # improves the probability estimate by calibrating using cross-validation.
+# improves the probability estimate by calibrating using cross-validation.
     return model
-
-
-
-
-
-# We can remove this predict function, as the predict is directly running in api_file_MM.py
-#def predict(frontend_data_preprocessed: pd.DataFrame, model) -> dict:
-    """
-    # Load model
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-
-    # Check shape
-    if frontend_data_preprocessed.shape != expected_shape:
-        print(f"[❌] Input shape mismatch. Expected {expected_shape}, got {frontend_data_preprocessed.shape}")
-        return None
-
-    # Predict
-    y_pred = model.predict(frontend_data_preprocessed)

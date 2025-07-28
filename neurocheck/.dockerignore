@@ -1,16 +1,17 @@
 # Python cache & build artifacts
 __pycache__/
+*.db
+*.egg-info/
+*.log
 *.pyc
 *.pyo
 *.pyd
-*.egg-info/
-*.db
-*.log
+.pytest_cache/
 
 # Dev Test Files Not Needed In Production
-tests/
-sample_data/
 dummy_sample_eeg.csv
+sample_data/
+tests/
 
 # Environments, Secrets.env
 .DS_Store
@@ -19,13 +20,15 @@ dummy_sample_eeg.csv
 # Git & IDE artifacts
 .git
 .gitignore
-.vscode/
 .idea/
+.vscode/
 
 # Jupyter Notebooks and Any Documentation
 *.ipynb
-notebooks/
+*.md
 docs/
+notebooks/
+README.md
 
 # Dev dependencies
 requirements-dev.txt
