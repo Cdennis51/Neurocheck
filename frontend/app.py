@@ -9,7 +9,7 @@ st.set_page_config(page_title="EEG Fatigue Detector", layout="centered")
 st.title("NeuroCheck EEG Fatigue Detector")
 
 # Display instructions to user
-uploaded_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv", "edf"])
+uploaded_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv"])
 
 if uploaded_file:
     # Display user upload status
@@ -25,8 +25,12 @@ if uploaded_file:
 
     # Display prediction result
     if "fatigue_class" in result:
-        st.success(f"Prediction: **{result['fatigue_class']}**")
+        # Convert numeric string to readable label
+        fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
+        display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+
+        st.success(f"Prediction: **{display_result}**")
         if "confidence" in result:
-            st.write(f"Confidence: {result['confidence']:.2f}")
+            st.write(f"Confidence Level: {result['confidence']:.2f}")
     else:
         st.error("❌ Could not get prediction.")
