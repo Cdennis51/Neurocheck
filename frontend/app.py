@@ -1,36 +1,75 @@
-"""Frontend Streamlit app for EEG Fatigue Detector.
-Accepts user uploads in CSV and EDF formats and displays predictions.
+"""Tabbed Streamlit frontend for NeuroCheck:
+- EEG tab accepts CSV uploads for fatigue detection.
+- MRI tab accepts JPG, JPEG, or PNG uploads for Alzheimer classification.
+After upload, each module sends data to a shared backend and displays model predictions.
 """
 import streamlit as st
 from utils.api_client import call_eeg_api
+from PIL import Image
+# import io  # Uncomment later if sending image bytes to backend
 
-# Set up the Streamlit app
-st.set_page_config(page_title="EEG Fatigue Detector", layout="centered")
-st.title("NeuroCheck EEG Fatigue Detector")
+# Set up the Streamlit app with two tabs
+st.set_page_config(page_title="NeuroCheck", layout="centered")
+tab1, tab2 = st.tabs(["EEG Fatigue Detector", "Alzheimer MRI Classifier"])
 
-# Display instructions to user
-uploaded_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv"])
+# === EEG Tab ===
+with tab1:
+    # Display EEG upload instructions to user
+    uploaded_eeg_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv"])
 
-if uploaded_file:
-    # Display user upload status
-    st.write(f"✅ File uploaded: {uploaded_file.name}")
+    if uploaded_eeg_file:
+        # Display user EEG file upload status
+        st.write(f"✅ File uploaded: {uploaded_eeg_file.name}")
 
-    # Display file processing status
-    with st.spinner("Analyzing EEG data..."):
-        result = call_eeg_api(uploaded_file)
+        # Display EEG file processing status
+        with st.spinner("Analyzing EEG data..."):
+            result = call_eeg_api(uploaded_eeg_file)
 
-    # If backend offline, warn but still provide user with fake response
-    if result.get("backend_status") == "offline":
-        st.warning("⚠️ Backend is offline, showing demo prediction instead.")
+        # If backend offline, warn but still provide user with fake response
+        if result.get("backend_status") == "offline":
+            st.warning("⚠️ Backend is offline, showing demo prediction instead.")
 
-    # Display prediction result
-    if "fatigue_class" in result:
-        # Convert numeric string to readable label
-        fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
-        display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+        # Display prediction result
+        if "fatigue_class" in result:
+            # Convert numeric string to readable label
+            fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
+            display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
 
-        st.success(f"Prediction: **{display_result}**")
-        if "confidence" in result:
-            st.write(f"Confidence Level: {result['confidence']:.2f}")
-    else:
-        st.error("❌ Could not get prediction.")
+            st.success(f"Prediction: **{display_result}**")
+            if "confidence" in result:
+                st.write(f"Confidence Level: {result['confidence']:.2f}")
+        else:
+            st.error("❌ Could not get prediction.")
+
+# === MRI Tab ===
+with tab2:
+    st.subheader("Alzheimer MRI Classifier")
+    # st.markdown("Upload an MRI brain image or use our sample to get a classification.")
+
+    # Display EEG upload instructions to user
+    uploaded_mri_file = st.file_uploader("📂 Upload an MRI Image", type=["jpg", "jpeg", "png"])
+
+    # # Button to load sample image
+    # use_sample = st.button("Use Sample Image")
+
+    mri_image_to_classify = None
+
+    if uploaded_mri_file:
+        # Display user MRI file upload status
+        mri_image_to_classify = Image.open(uploaded_mri_file)
+        st.success(f"✅ File uploaded: {uploaded_mri_file.name}")
+    # elif use_sample:
+    #     sample_path = "sample_mri.jpg"  # You will add this file locally or via URL
+    #     mri_image_to_classify = Image.open(sample_path)
+    #     st.info("📁 Using sample image.")
+
+    if mri_image_to_classify:
+        # Display the uploaded or sample MRI image to the user
+        st.image(mri_image_to_classify, caption="MRI Input", use_column_width=True)
+    # TODO: Integrate backend call to Hugging Face model via FastAPI
+    # This block will handle:
+    #   - Sending the image to the /predict/alz endpoint
+    #   - Receiving the classification result
+    #   - Displaying the predicted label and confidence score
+
+        st.write("🔄 Model prediction coming soon...")
