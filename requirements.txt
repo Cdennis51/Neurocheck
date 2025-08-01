@@ -8,6 +8,8 @@ matplotlib
 seaborn
 scikit-learn
 xgboost
+datasets
+audiofile
 
 #API
 fastapi
