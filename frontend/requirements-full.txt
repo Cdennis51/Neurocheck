@@ -1,8 +1,7 @@
 # Everything from MVP
 -r requirements.txt
 
-# File handling (optional later)
-pillow==9.5.0   # For displaying images
+# File handling
 soundfile==0.12.1   # For audio file uploads
 
 # PDF downloads, exports (optional later)
