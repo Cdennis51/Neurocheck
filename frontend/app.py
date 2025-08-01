@@ -17,7 +17,7 @@ with tab1:
     st.subheader("EEG Fatigue Detector")
 
     # Display EEG upload instructions to user
-    uploaded_eeg_file = st.file_uploader("📂 Upload your EEG File Here", type=["csv"])
+    uploaded_eeg_file = st.file_uploader("📂 Upload an EEG", type=["csv"])
 
     if uploaded_eeg_file:
         # Display user EEG file upload status
