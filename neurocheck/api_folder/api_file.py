@@ -92,11 +92,11 @@ def create_dummy_response(user_document: str, mode: str):
 #     raise NotImplementedError("EDF file support not yet implemented. Use CSV instead.")
 
 # === Require Named File for User Input===
-def require_filename(file) -> str:
+def require_filename(received_file) -> str:
     """Ensures file and filename are present, returns lowercase name or raises ValueError."""
-    if not file or not file.filename:
+    if not received_file or not received_file.filename:
         raise ValueError("Expected a file with a valid filename")
-    return file.filename.lower()
+    return received_file.filename.lower()
 
 
 # === Import Processing Function ===
@@ -234,7 +234,7 @@ def debug_status():
 
 # === EEG Prediction Endpoint ===
 @app.post("/predict/eeg")
-async def predict_eeg(file: UploadFile = File(...)):
+async def predict_eeg(eeg_file: UploadFile = File(...)):
     """
     EEG prediction endpoint with comprehensive error handling and fallback responses.
 
@@ -256,19 +256,19 @@ async def predict_eeg(file: UploadFile = File(...)):
             - preprocessing_used: Boolean indicating if preprocessing succeeded
             - note: Error explanation (in dummy responses only)
     """
-    user_file_name = require_filename(file)
+    user_eeg_file_name = require_filename(eeg_file)
 
 
     # Step 1: Load EEG into DataFrame
     try:
-        if user_file_name.endswith(".csv"):
-            contents = await file.read()
+        if user_eeg_file_name.endswith(".csv"):
+            contents = await eeg_file.read()
             eeg_df = pd.read_csv(BytesIO(contents))
             eeg_df.columns = eeg_df.columns.str.strip()
-        # elif user_file_name.endswith(".edf"):
-        #     eeg_df = read_edf_to_dataframe(file.file)  # Not yet implemented
+        # elif user_eeg_file_name.endswith(".edf"):
+        #     eeg_df = read_edf_to_dataframe(eeg_file.file)  # Not yet implemented
         else:
-            logging.warning("Unsupported file format: %s", user_file_name)
+            logging.warning("Unsupported file format: %s", user_eeg_file_name)
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported file format. Please upload CSV."
@@ -305,17 +305,16 @@ async def predict_eeg(file: UploadFile = File(...)):
                 "backend_status": "Production",
                 "fatigue_class": str(prediction),
                 "confidence": round(proba if prediction == 1 else 1 - proba, 4),
-                #Calculate's the confidence in the predicted class, not just fatigued.
-                "filename": user_file_name,
+                "filename": user_eeg_file_name,
                 "preprocessing_used": preprocessing_success
             }
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
-            result = create_dummy_response(user_file_name, f"prediction_error: {str(e)}")
+            result = create_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
 
     else:
-        result = create_dummy_response(user_file_name, "Development")
+        result = create_dummy_response(user_eeg_file_name, "Development")
 
     return result
 
