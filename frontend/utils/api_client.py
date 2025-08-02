@@ -105,7 +105,7 @@ def call_mri_api(uploaded_image_file, timeout: int = 120):
 
     try:
         response = requests.post(
-            f"{BACKEND_API}/predict/alzheimer", # want to add correct URL
+            f"{BACKEND_API}/predict/alzheimers", # want to add correct URL
             files=files,
             headers=headers,
             timeout=timeout
