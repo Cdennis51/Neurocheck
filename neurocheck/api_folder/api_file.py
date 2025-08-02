@@ -53,13 +53,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from xgboost import XGBClassifier
 
-# Set path before imports
+# Set path before module imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ml_logic'))
 
-# Import Alzheimer's Modules
-from alzheimers.alzheimers_model import predict as predict_alzheimers_image
-from alzheimers.alzheimers_preprocess import resize_upload as resize_alzheimers_upload
 
 # === Configure Logging ===
 logging.basicConfig(
@@ -67,44 +64,23 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# === Dummy Response Generator ===
-def create_dummy_response(user_document: str, mode: str):
-    """Generate dummy response for development/testing"""
-    dummy_classes = ["0*", "1*"]
-    return {
-        "backend_status": f"development_mode_{mode}",
-        "fatigue_class": random.choice(dummy_classes),
-        "confidence": round(random.uniform(0.7, 0.95), 2),
-        "filename": user_document,
-        "note": "It appears our analysis tools are offline.\n\
-            We're sorry about that. We're fixing it now.\n\
-            We should be back online and happy to help soon."
-        }
 
-# === Require Named File for User Input===
-def require_filename(received_file) -> str:
-    """Ensures file and filename are present, returns lowercase name or raises ValueError."""
-    if not received_file or not received_file.filename:
-        raise ValueError("Expected a file with a valid filename")
-    return received_file.filename.lower()
-
-# === Import Processing Function ===
-# Attempt to import preprocessing components
+# === Import EEG Processing Function ===
+# Attempt to import EEG preprocessing components.
+# If it fails, set to False and log warning.
 PREPROCESS_EEG_AVAILABLE = False
 PREPROCESS_EEG_IMPORT_ERROR = None
 PREPROCESS_EEG = None
 try:
     from neurocheck.ml_logic.preprocess import preprocess_eeg_df as PREPROCESS_EEG
     PREPROCESS_EEG_AVAILABLE = True
-# If it fails, set to False and log warning.
-# This allows the backend to run even if preprocessing is not available.
 except ImportError as e:
     logging.warning("Preprocessor function load failed: %s", e)
     PREPROCESS_EEG_IMPORT_ERROR = str(e)
 
 
-# === Model Module Import ===
-# Attempt to import model components that will be instantiated and called later
+# === Import EEG Model Components ===
+# Attempt to import model components that will be instantiated and called later.
 MODEL_EEG_AVAILABLE = False
 ML_LOAD_EEG_MODEL = None
 MODEL_EEG_IMPORT_ERROR = None
@@ -116,8 +92,7 @@ except ImportError as e:
     logging.warning("Model import function failed: %s", e)
     MODEL_EEG_IMPORT_ERROR = str(e)
 
-
-# === Load Model At Startup ===
+# === Load EEG Model At Startup ===
 MODEL_EEG_LOADED = False
 MODEL_EEG_RUN = None
 MODEL_LOADING_ERROR = None
@@ -133,18 +108,130 @@ if MODEL_EEG_AVAILABLE:
         logging.warning("Failed to load model: %s", e)
         MODEL_LOADING_ERROR = str(e)
 
+# === Import Alzheimer's Modules ===
+ALZHEIMERS_AVAILABLE = False
+ALZHEIMERS_IMPORT_ERROR = None
+PREDICT_ALZHEIMERS_IMAGE = None
+RESIZE_ALZHEIMERS_UPLOAD = None
+
+try:
+    from neurocheck.ml_logic.alzheimers.alzheimers_model \
+        import predict as predict_alzheimers_image
+    from neurocheck.ml_logic.alzheimers.alzheimers_preprocess \
+        import resize_upload as resize_alzheimers_upload
+
+    PREDICT_ALZHEIMERS_IMAGE = predict_alzheimers_image
+    RESIZE_ALZHEIMERS_UPLOAD = resize_alzheimers_upload
+    ALZHEIMERS_AVAILABLE = True
+    logging.info("Alzheimer's modules loaded successfully")
+except ImportError as e:
+    logging.warning("Alzheimer's modules load failed: %s", e)
+    ALZHEIMERS_IMPORT_ERROR = str(e)
+
+# === Helper Functions ===
+def create_eeg_dummy_response(filename: str, error_type: str):
+    """Generate consistent dummy response for EEG predictions"""
+    return {
+        "backend_status": f"development_mode_{error_type}",
+        "fatigue_class": str(random.choice([0, 1])) + "*",
+        "confidence": round(random.uniform(0.7, 0.95), 2),
+        "filename": filename,
+        "note": "Analysis tools offline. We're fixing it and should be back soon."
+    }
+
+def create_alzheimers_dummy_response(filename: str, error_type: str):
+    """Generate consistent dummy response for Alzheimer's predictions"""
+    dummy_classes = ["Normal", "Mild Cognitive Impairment", "Alzheimer's Disease"]
+    return {
+        "backend_status": f"development_mode_{error_type}",
+        "prediction": random.choice(dummy_classes) + "*",
+        "confidence": round(random.uniform(0.7, 0.95), 2),
+        "filename": filename,
+        "overlay": None,
+        "note": "Analysis tools offline. We're fixing it and should be back soon."
+    }
+
+def require_filename(received_file) -> str:
+    """Ensures file and filename are present, returns lowercase name or raises ValueError."""
+    if not received_file or not received_file.filename:
+        raise ValueError("Expected a file with a valid filename")
+    return received_file.filename.lower()
+# === Status Management ===
+class ComponentStatus:
+    """
+    Centralized status manager for backend components and error tracking.
+
+    Tracks availability and errors for all backend components (preprocessing,
+    models, etc.) and provides standardized methods for determining service
+    mode and error reporting.
+
+    Attributes:
+        components (dict): Component availability and error state tracking
+
+    Methods:
+        get_service_mode(): Returns 'production', 'partial', or 'development'
+        get_errors(): Returns dict of components with active errors
+    """
+    def __init__(self):
+        self.components = {
+            'eeg_preprocessing': {
+                'available': PREPROCESS_EEG_AVAILABLE,
+                'error': PREPROCESS_EEG_IMPORT_ERROR
+            },
+            'eeg_model': {
+                'available': MODEL_EEG_LOADED,
+                'error': MODEL_EEG_IMPORT_ERROR or MODEL_LOADING_ERROR
+            },
+            'alzheimers': {
+                'available': ALZHEIMERS_AVAILABLE,
+                'error': ALZHEIMERS_IMPORT_ERROR
+            }
+        }
+
+    def get_service_mode(self):
+        """
+        Determine the current operational mode of the service.
+
+        Returns:
+            str: One of the following modes based on component availability:
+                - 'production': All core components are available.
+                - 'partial': Some components are available.
+                - 'development': No components are available.
+        """
+        if (self.components['eeg_preprocessing']['available'] and
+            self.components['eeg_model']['available']):
+            return 'production'
+        elif any(comp['available'] for comp in self.components.values()):
+            return 'partial'
+        else:
+            return 'development'
+
+    def get_errors(self):
+        """
+        Retrieve a dictionary of components with active errors.
+
+        Returns:
+            dict: A mapping of component names to their error messages or flags,
+                  including only those components currently in an error state.
+        """
+        return {name: comp['error'] for name, comp
+                in self.components.items() if comp['error']}
+
+# Initialize status manager
+status_manager = ComponentStatus()
+
 # === Initialize FastAPI App ===
 app = FastAPI(
     title="NeuroCheck Backend",
     description="Neurocheck Backend for EEG and Alzheimers",
-    version="0.5.0"
+    version="0.5.1"
 )
 
 # === CORS Functionality for Independent Front End, Back End Communication ===
 # https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
 
 # Define Sources Assigned Full BackEnd API Calling Capabilities
-# Revisit removing localhost capabilities after successful debugged deployment
+# TODO: Revisit removing localhost capabilities after successful debugged deployment
 ALLOWED_ORIGINS = [
     "http://localhost:8501",  # local Streamlit dev
     "https://neurocheck-frontend.streamlit.app", # Deployed Streamlit App
@@ -159,7 +246,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # === Health Check Endpoint, Check If Backend Online===
 @app.get("/health")
 def health_check():
@@ -168,33 +254,24 @@ def health_check():
 
     Returns:
         dict: A JSON response containing:
-        - status: Service availability ("online", "degraded", "offline")
+        - status: Service availability ("online", "degraded")
         - version: Current API version
         - message: User-friendly status message
-        - components: Detailed component availability and operational mode
+        - mode: Operational mode ("production", "partial", "development")
+        - components: Component availability status for each service
         - endpoints: Available API endpoints for discovery
     """
-    if PREPROCESS_EEG_AVAILABLE and MODEL_EEG_LOADED:
-        service_status = "online"
-        mode = "production"
-    elif MODEL_EEG_LOADED or PREPROCESS_EEG_AVAILABLE:
-        service_status = "degraded"
-        mode = "partial"
-    else:
-        service_status = "degraded"
-        mode = "development"
-    health_status = {
+    mode = status_manager.get_service_mode()
+    service_status = "online" if mode == "production" else "degraded"
+
+    return {
         "status": service_status,
-        "version": "0.4.2",
+        "version": "0.5.0",
         "message": "Backend is running! Use /predict/eeg for predictions.",
-        "components": {
-            "preprocessing": PREPROCESS_EEG_AVAILABLE,
-            "model": MODEL_EEG_LOADED,
-            "mode": mode if (PREPROCESS_EEG_AVAILABLE and MODEL_EEG_LOADED) else f"{mode}: See '/debug'"
-        },
-        "endpoints": ["/health", "/debug", "/predict/eeg"]
+        "mode": mode,
+        "components": {name: comp['available'] for name, comp in status_manager.components.items()},
+        "endpoints": ["/health", "/debug", "/predict/eeg", "/predict/alzheimers"]
     }
-    return health_status
 
 # === Debug Endpoint ===
 @app.get("/debug")
