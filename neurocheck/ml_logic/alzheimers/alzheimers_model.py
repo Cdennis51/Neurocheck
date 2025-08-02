@@ -7,14 +7,14 @@ from transformers import pipeline
 
     # Get label mappings from the model
     # try:
-        id2label = model.config.id2label
-        label2id = model.config.label2id
+        # id2label = model.config.id2label
+        # label2id = model.config.label2id
 
-        print(f"Number of classes: {len(id2label)}")
-        print(f"Classes: {id2label}")
+        # print(f"Number of classes: {len(id2label)}")
+        # print(f"Classes: {id2label}")
 
     # except:
-        print("Failed to get label mappings from the model.")
+        # print("Failed to get label mappings from the model.")
 
     # Predict the label
     # result = classifier(preprocessed_image)
