@@ -5,7 +5,7 @@ def resize_upload(uploaded_image_bytes):
     #Convert to PIL image
     image = Image.open(io.BytesIO(uploaded_image_bytes))
     image = image.convert('L')
-    image = image.resize((128,128)) # Must be a tuple.
+    image = image.resize((224,224)) # Must be a tuple.
 
     return image
 
