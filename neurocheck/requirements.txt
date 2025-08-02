@@ -7,25 +7,30 @@ python-multipart==0.0.6
 # API Communication
 requests==2.31.0
 
-# Build tools (safe on Python 3.10+)
+# Build Tools
 setuptools==68.0.0
 
-# CLI / Logs / UX
+# CLI/Logs/UX
 colorama==0.4.6
 
-# Configuration and Environment Management
+# Configuration
 python-dotenv==1.0.0
 
-# ML & Data Handling
+# ML & Data
 numpy==1.26.4
 pandas==2.3.1
 scikit-learn==1.7.0
 xgboost==3.0.2
 mlflow==2.8.1
 
-# Data Serialization & System Utils
+# Data & System Utils
 protobuf==3.20.3
 psutil==7.0.0
 
 # Scientific Computing
 scipy==1.15.3
+
+# ML Models
+transformers==4.31.0
+torch==2.0.1
+Pillow==10.0.0
