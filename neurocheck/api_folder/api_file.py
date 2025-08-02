@@ -267,7 +267,7 @@ def health_check():
     return {
         "status": service_status,
         "version": "0.5.0",
-        "message": "Backend is running! Use /predict/eeg for predictions.",
+        "message": "Backend is running!",
         "mode": mode,
         "components": {name: comp['available'] for name, comp in status_manager.components.items()},
         "endpoints": ["/health", "/debug", "/predict/eeg", "/predict/alzheimers"]
@@ -277,23 +277,22 @@ def health_check():
 @app.get("/debug")
 def debug_status():
     """
-    Returns system status information for debugging.
+    Returns comprehensive system status information for debugging.
 
-    Provides current state of model loading, preprocessing availability,
-    and detailed error messages for troubleshooting component failures.
+    Provides detailed component status, operational mode, and specific error
+    messages for troubleshooting component failures. Use this endpoint when
+    components fail to load or when the service is in degraded mode.
+
+    Returns:
+        dict: Debug information containing:
+        - mode: Current operational mode
+        - components: Detailed component status and error information
+        - errors: Active error messages or success confirmation
     """
-    errors = {}
-
-    if PREPROCESS_EEG_IMPORT_ERROR:
-        errors["preprocess_import"] = PREPROCESS_EEG_IMPORT_ERROR
-    if MODEL_EEG_IMPORT_ERROR:
-        errors["model_import"] = MODEL_EEG_IMPORT_ERROR
-    if MODEL_LOADING_ERROR:
-        errors["model_loading"] = MODEL_LOADING_ERROR
+    errors = status_manager.get_errors()
     return {
-        "MODEL_AVAILABLE": MODEL_EEG_AVAILABLE,
-        "MODEL_LOADED": MODEL_EEG_LOADED,
-        "PREPROCESS_AVAILABLE": PREPROCESS_EEG_AVAILABLE,
+        "mode": status_manager.get_service_mode(),
+        "components": status_manager.components,
         "errors": errors if errors else "No errors: All components loaded successfully"
     }
 
@@ -304,7 +303,7 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
     EEG prediction endpoint with comprehensive error handling and fallback responses.
 
     Accepts:
-        - CSV file uploads (EDF support planned for future)
+        - CSV file uploads
 
     Process:
         - Reads uploaded EEG file → DataFrame with column cleaning
@@ -327,11 +326,9 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
     # Step 1: Load EEG into DataFrame
     try:
         if user_eeg_file_name.endswith(".csv"):
-            contents = await eeg_file.read()
-            eeg_df = pd.read_csv(BytesIO(contents))
+            eeg_contents = await eeg_file.read()
+            eeg_df = pd.read_csv(BytesIO(eeg_contents))
             eeg_df.columns = eeg_df.columns.str.strip()
-        # elif user_eeg_file_name.endswith(".edf"):
-        #     eeg_df = read_edf_to_dataframe(eeg_file.file)  # Not yet implemented
         else:
             logging.warning("Unsupported file format: %s", user_eeg_file_name)
             raise HTTPException(
@@ -348,14 +345,14 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
 
 
     # Step 2: Try preprocessing
-    preprocessing_success = False
+    preprocessing_eeg_success = False
     proc_eeg_df = eeg_df
 
     if PREPROCESS_EEG_AVAILABLE and PREPROCESS_EEG:
         try:
             proc_eeg_df = PREPROCESS_EEG(eeg_df)
             logging.info("Preprocessing completed successfully")
-            preprocessing_success = True
+            preprocessing_eeg_success = True
         except (ValueError, RuntimeError) as e:
             logging.warning("Preprocessing failed: %s", e)
 
@@ -364,22 +361,22 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
             logging.info("Using columns for prediction: %s", proc_eeg_df.columns.tolist())
-            proba = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
-            prediction = int(proba > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
+            proba_eeg = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
+            prediction_eeg = int(proba_eeg > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
             result = {
                 "backend_status": "Production",
-                "fatigue_class": str(prediction),
-                "confidence": round(proba if prediction == 1 else 1 - proba, 4),
+                "fatigue_class": str(prediction_eeg),
+                "confidence": round(proba_eeg if prediction_eeg == 1 else 1 - proba_eeg, 4),
                 "filename": user_eeg_file_name,
-                "preprocessing_used": preprocessing_success
+                "preprocessing_used": preprocessing_eeg_success
             }
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
-            result = create_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
+            result = create_eeg_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
 
     else:
-        result = create_dummy_response(user_eeg_file_name, "Development")
+        result = create_eeg_dummy_response(user_eeg_file_name, "Development")
 
     return result
 
