@@ -51,54 +51,52 @@ CMD ["uvicorn", "neurocheck.api_folder.api_file:app", "--host", "0.0.0.0", "--po
 
 
 
-# === Step 01: Build Base Image ===
+# # === Step 01: Build Base Image ===
 # FROM python:3.10-slim AS base
 
-# # Don't write .pyc files and ensure logs are printed immediately
+# # Environment variables to improve Python behavior
 # ENV PYTHONDONTWRITEBYTECODE=1 \
-#     PYTHONUNBUFFERED=1
+#     PYTHONUNBUFFERED=1 \
+#     TRANSFORMERS_CACHE=/app/cache/huggingface
 
 # # Set working directory
 # WORKDIR /app
 
-# # Install required system packages to support scientific libraries (NumPy, Pandas, etc.)
+# # Install system dependencies
 # RUN apt-get update && apt-get install -y --no-install-recommends \
 #     build-essential \
 #     gcc \
 #     gfortran \
 #     libatlas-base-dev \
+#     libgl1 \
 #     && rm -rf /var/lib/apt/lists/*
 
-# # === Step 02: Install Python Dependencies and Cache Model ===
+# # === Step 02: Install Python Dependencies in a Builder Stage ===
 # FROM base AS builder
 
-# # Copy Python dependency list
 # COPY requirements.txt .
 
-# # Install Python packages and pre-cache the Hugging Face Alzheimer model
+# # Install dependencies into /install
 # RUN pip install --upgrade pip && \
-#     pip install --prefix=/install -r requirements.txt && \
-#     python -c "from transformers import pipeline; pipeline('image-classification', model='DHEIVER/Alzheimer-MRI')"
+#     pip install --prefix=/install -r requirements.txt
 
-# # === Step 03: Build Minimal Runtime Image ===
+# # === Step 03: Final Runtime Image ===
 # FROM base
 
-# # Copy Python dependencies (from builder stage) into this final stage
+# # Copy installed packages from builder
 # COPY --from=builder /install /usr/local
 
-# # Copy the cached Alzheimer model so it can run offline
-# COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
-
-# # Copy your application source code (FastAPI app, ML code, etc.)
+# # Copy backend code
 # COPY . /app/neurocheck
 
-# # Optional: silence Hugging Face warning messages
-# ENV TRANSFORMERS_NO_ADVISORY_WARNINGS=1
+# # Create Hugging Face model cache folder
+# RUN mkdir -p /app/cache/huggingface
 
-# # Expose port 8080 (used by FastAPI/Uvicorn)
+# # Preload Alzheimer model to cache (avoids runtime download)
+# RUN python -c "from transformers import pipeline; pipeline('image-classification', model='DHEIVER/Alzheimer-MRI')"
+
+# # Expose FastAPI port
 # EXPOSE 8080
 
-# # Run the FastAPI app using Uvicorn (adjust filename if needed)
-# CMD ["uvicorn", "neurocheck.api_folder.api_file_alzheimers:app", "--host", "0.0.0.0", "--port", "8080"]
-
-#
+# # Start FastAPI backend
+# CMD ["uvicorn", "neurocheck.api_folder.api_file:app", "--host", "0.0.0.0", "--port", "8080"]

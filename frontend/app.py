@@ -74,4 +74,19 @@ with tab2:
     #   - Receiving the classification result
     #   - Displaying the predicted label and confidence score
 
-        st.write("🔄 Model prediction coming soon...")
+        # This additional section will upload and show the MRI Image, discplay prediction and confidence and display attention map. 
+        with st.spinner("Analyzing MRI..."):
+            result = call_mri_api(uploaded_mri_file)
+
+        if "error" in result:
+            st.error(f"❌ Error: {result['error']}")
+        else:
+            st.success(f"Prediction: **{result['prediction']}**")
+            st.write(f"Confidence: {result['confidence']:.2f}")
+
+            if "overlay" in result:
+                st.image(
+                    f"data:image/png;base64,{result['overlay']}",
+                    caption="Attention Map Overlay",
+                    use_column_width=True
+                )

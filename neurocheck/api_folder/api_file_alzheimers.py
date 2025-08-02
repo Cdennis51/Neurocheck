@@ -324,40 +324,71 @@ async def predict_eeg(file: UploadFile = File(...)):
 
     return result
 
-# === Alzheimer MRI Prediction Endpoint ===
+# # === Alzheimer MRI Prediction Endpoint ===
+# @app.post("/predict/alzheimers")
+# async def predict_alzheimers(file: UploadFile = File(...)):
+#     """
+#     Alzheimer MRI image classification endpoint.
+
+#     Accepts:
+#         - Image files (JPEG/PNG)
+
+#     Returns:
+#         dict: JSON response containing:
+#             - backend_status: "Production"
+#             - prediction: Model's predicted class label
+#             - confidence: Model confidence score
+#             - filename: Uploaded filename
+#     """
+#     user_file_name = require_filename(file)
+
+#     try:
+#         contents = await file.read()
+#         image = resize_upload(contents)
+#         result = predict_alzheimers_image(image)
+
+#         return {
+#             "backend_status": "Production",
+#             "prediction": result["label"],
+#             "confidence": result["score"],
+#             "filename": user_file_name
+#         }
+
+#     except Exception as e:
+#         logging.warning("Alzheimer prediction failed: %s", e)
+#         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
+
+# Updated endpoint code to account for attention map overlay
 @app.post("/predict/alzheimers")
 async def predict_alzheimers(file: UploadFile = File(...)):
     """
-    Alzheimer MRI image classification endpoint.
-
-    Accepts:
-        - Image files (JPEG/PNG)
+    Alzheimer MRI image classification endpoint with attention map overlay.
 
     Returns:
-        dict: JSON response containing:
-            - backend_status: "Production"
-            - prediction: Model's predicted class label
-            - confidence: Model confidence score
-            - filename: Uploaded filename
+        - Predicted class label
+        - Confidence score
+        - Base64-encoded attention overlay
     """
     user_file_name = require_filename(file)
 
     try:
         contents = await file.read()
         image = resize_upload(contents)
-        result = predict_alzheimers_image(image)
+
+        # Get both prediction and attention overlay
+        result, overlay_base64 = predict_alzheimers_image(image)
 
         return {
             "backend_status": "Production",
             "prediction": result["label"],
             "confidence": result["score"],
-            "filename": user_file_name
+            "filename": user_file_name,
+            "overlay": overlay_base64
         }
 
     except Exception as e:
         logging.warning("Alzheimer prediction failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
-
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
