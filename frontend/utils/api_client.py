@@ -1,10 +1,13 @@
-"""Utility for sending EEG data to a FastAPI backend for fatigue prediction.
-This module provides a utility function to send EEG data files to a FastAPI backend
-for fatigue prediction. It attempts to contact the `/predict/eeg` endpoint and returns
-the JSON response. If the backend is unavailable, it returns a mock response for demo purposes.
+"""Utility for sending EEG and MRI data to a FastAPI backend for prediction.
+This module provides a utility function to send EEG and MRI data files to a FastAPI backend.
+This includes functions to:
+- Check backend health
+- Send EEG CSV files for fatigue prediction
+- Send MRI image files files for Alzheimer classification.
+
+All requests include authorization headers from Streamlit secrets.
 """
 import requests
-
 
 # Default backend URL (can override with ENV variable)
 import streamlit as st
@@ -22,67 +25,96 @@ def check_backend_health():
         return {"status": "offline with request exception"}
 
 
-def call_eeg_api(uploaded_file, timeout: int = 120):
+def call_eeg_api(uploaded_eeg_file, timeout: int = 120):
     """
         Send an EEG file to the FastAPI backend for fatigue prediction.
 
         Args:
-            uploaded_file: File-like object (e.g., from Streamlit `st.file_uploader`)
-                        Must have `.name`, `.getvalue()`, and `.type` attributes.
-            timeout (int): Request timeout in seconds (default: 10).
+            uploaded_eeg_file: File-like object (from Streamlit uploader) with .name, .getvalue(), .type
+            timeout (int): Request timeout in seconds (default: 120)
 
         Returns:
-            dict: JSON response from backend if available.
-                Example:
-                {
-                    "backend_status": "production",
-                    "fatigue_class": "alert",
-                    "confidence": 0.92,
-                    "filename": filename,
-                    ...
-                }
-
-                If backend is offline/unreachable:
-                {
-                    "fatigue_class": "fatigued (demo)",
-                    "confidence": 0.87,
-                    "backend_status": "offline"
-                }
-
-        Raises:
-            ValueError: If uploaded_file is not a valid file-like object.
+            dict: Backend JSON response or dummy offline response.
         """
 
     # Validate uploaded file
-    if not hasattr(uploaded_file, "getvalue"):
-        raise ValueError("uploaded_file must be a file-like object (e.g., from Streamlit uploader)")
+    if not hasattr(uploaded_eeg_file, "getvalue"):
+        raise ValueError("Uploaded EEG file must be a file-like object (e.g., from Streamlit uploader)")
 
     # Convert file for multipart/form-data upload
     files = {
-        "file": (
-            uploaded_file.name,
-            uploaded_file.getvalue(),
-            uploaded_file.type or "application/octet-stream"
+        "eeg_file": (
+            uploaded_eeg_file.name,
+            uploaded_eeg_file.getvalue(),
+            uploaded_eeg_file.type or "application/octet-stream"
         )
     }
 
-    try:
-        # Send to backend prediction endpoint
-        headers = {
+    headers = {
         "Authorization": f"Bearer {st.secrets['GCLOUD_ACCESS_TOKEN']}"
+    }
+
+    try:
+        response = requests.post(
+            f"{BACKEND_API}/predict/eeg",
+            files=files,
+            headers=headers,
+            timeout=timeout
+            )
+        response.raise_for_status()
+        return response.json()
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "fatigue_class": "Fatigued",
+            "confidence": 0.87,
+            "backend_status": "error" if isinstance(e, requests.exceptions.HTTPError)
+                else "offline",
+            "message": f"Backend error: {str(e)}"
+                if isinstance(e, requests.exceptions.HTTPError) else None
         }
-        response = requests.post(f"{BACKEND_API}/predict/eeg", files=files, headers=headers, timeout=timeout)
-        response.raise_for_status() # Raise HTTP failures
-        return response.json()      # Return JSON response from API
+
+def call_mri_api(uploaded_image_file, timeout: int = 120):
+    """
+    Send an MRI image file to the FastAPI backend for Alzheimer classification.
+
+    Args:
+        uploaded_image_file: File-like object (from Streamlit uploader) with .name, .type, and readable content
+        timeout (int): Request timeout in seconds (default: 120)
+
+    Returns:
+        dict: Backend JSON response or error dict.
+    """
+    if not hasattr(uploaded_image_file, "read") and not hasattr(uploaded_image_file, "getvalue"):
+        raise ValueError("Image filefile must be a file-like object (e.g., from Streamlit uploader)")
+
+    # Use getvalue() if available, else fallback to read()
+    file_content = uploaded_image_file.getvalue() if hasattr(uploaded_image_file, "getvalue") else uploaded_image_file.read()
+
+    files = {
+        "file": (
+            uploaded_image_file.name,
+            file_content,
+            uploaded_image_file.type or "application/octet-stream"
+        )
+    }
+
+    headers = {
+        "Authorization": f"Bearer {st.secrets['GCLOUD_ACCESS_TOKEN']}"
+    }
+
+    try:
+        response = requests.post(
+            f"{BACKEND_API}/predict/alz",
+            files=files,
+            headers=headers,
+            timeout=timeout
+        )
+        response.raise_for_status()
+        return response.json()
 
     except requests.exceptions.HTTPError as e:
-        # Backend responded with error (e.g., 400 Bad Request)
-        return {"backend_status": "error", "message": f"Backend error: {str(e)}"}
+        return {"error": f"Backend error: {str(e)}"}
 
-    except requests.exceptions.RequestException:
-        # Backend unreachable → return dummy response
-        return {
-            "fatigue_class": "Fatigued (We're having issues connecting to our server at the moment)",
-            "confidence": 0.87,
-            "backend_status": "offline"
-        }
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Request failed: {str(e)}"}
