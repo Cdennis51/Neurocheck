@@ -51,7 +51,8 @@ import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from xgboost import XGBClassifier
+#from xgboost import XGBClassifier
+#TODO: Check if above is necessary for Deployment
 
 # Set path before module imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -129,13 +130,13 @@ except ImportError as e:
     ALZHEIMERS_IMPORT_ERROR = str(e)
 
 # === Helper Functions ===
-def create_eeg_dummy_response(filename: str, error_type: str):
+def create_eeg_dummy_response(bad_eeg_filename: str, error_type: str):
     """Generate consistent dummy response for EEG predictions"""
     return {
         "backend_status": f"development_mode_{error_type}",
         "fatigue_class": str(random.choice([0, 1])) + "*",
         "confidence": round(random.uniform(0.7, 0.95), 2),
-        "filename": filename,
+        "filename": bad_eeg_filename,
         "note": "Analysis tools offline. We're fixing it and should be back soon."
     }
 
@@ -156,6 +157,8 @@ def require_filename(received_file) -> str:
     if not received_file or not received_file.filename:
         raise ValueError("Expected a file with a valid filename")
     return received_file.filename.lower()
+
+
 # === Status Management ===
 class ComponentStatus:
     """
@@ -266,7 +269,7 @@ def health_check():
 
     return {
         "status": service_status,
-        "version": "0.5.0",
+        "version": "0.5.1",
         "message": "Backend is running!",
         "mode": mode,
         "components": {name: comp['available'] for name, comp in status_manager.components.items()},
@@ -362,7 +365,8 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
             logging.info("Using columns for prediction: %s", proc_eeg_df.columns.tolist())
             proba_eeg = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
-            prediction_eeg = int(proba_eeg > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
+            # Apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
+            prediction_eeg = int(proba_eeg > 0.45)
             result = {
                 "backend_status": "Production",
                 "fatigue_class": str(prediction_eeg),
@@ -379,6 +383,82 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
         result = create_eeg_dummy_response(user_eeg_file_name, "Development")
 
     return result
+
+
+# === Alzheimer's MRI Prediction Endpoint ===
+@app.post("/predict/alzheimers")
+async def predict_alzheimers(alz_file: UploadFile = File(...)):
+    """
+    Alzheimer's MRI image classification endpoint with comprehensive error handling.
+
+    Accepts:
+        - Image files (JPEG/PNG/JPG)
+
+    Process:
+        - Reads uploaded image file
+        - Resizes image using preprocessing module when available
+        - Predicts Alzheimer's classification using loaded model
+        - Falls back to informative dummy responses when components fail
+
+    Returns:
+        dict: JSON response containing:
+            - backend_status: "Production" or "development_mode_[error_type]"
+            - prediction: Model's predicted class label or dummy prediction
+            - confidence: Model confidence score (0-1) or dummy confidence
+            - filename: Original uploaded filename
+            - overlay: Base64-encoded attention overlay (when available)
+            - note: Error explanation (in dummy responses only)
+    """
+    alz_filename = require_filename(alz_file)
+
+    # Step 1: Validate file format
+    if not alz_filename.endswith(('.jpg', '.jpeg', '.png')):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload JPEG or PNG image."
+        )
+
+    # Step 2: Try processing with full pipeline
+    if ALZHEIMERS_AVAILABLE and RESIZE_ALZHEIMERS_UPLOAD and PREDICT_ALZHEIMERS_IMAGE:
+        try:
+            alz_contents = await alz_file.read()
+            alz_image = RESIZE_ALZHEIMERS_UPLOAD(alz_contents)
+
+            # Get prediction result - check what the function actually returns
+            alz_prediction_output = PREDICT_ALZHEIMERS_IMAGE(alz_image)
+
+            # Handle different return formats
+            if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
+                alz_result, alz_overlay_b64 = alz_prediction_output
+                alz_label = alz_result.get("label", str(alz_result)) \
+                    if isinstance(alz_result, dict) else str(alz_result)
+                alz_confidence = alz_result.get("score", 0.5) \
+                    if isinstance(alz_result, dict) else 0.5
+            else:
+                # Single return value
+                alz_result = alz_prediction_output
+                alz_overlay_b64 = None
+                alz_label = alz_result.get("label", str(alz_result)) \
+                    if isinstance(alz_result, dict) else str(alz_result)
+                alz_confidence = alz_result.get("score", 0.5) \
+                    if isinstance(alz_result, dict) else 0.5
+
+            return {
+                "backend_status": "Production",
+                "prediction": alz_label,
+                "confidence": alz_confidence,
+                "filename": alz_filename,
+                "overlay": alz_overlay_b64
+            }
+
+        except (ValueError, RuntimeError, IOError) as alz_error:
+            logging.warning("Alzheimer prediction failed: %s", alz_error)
+            return create_alzheimers_dummy_response(alz_filename,
+            f"prediction_error: {str(alz_error)}")
+
+    else:
+        # Fallback to dummy response
+        return create_alzheimers_dummy_response(alz_filename, "development")
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
