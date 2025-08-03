@@ -2,7 +2,7 @@
 NeuroCheck Backend API
 ======================
 
-This module implements a FastAPI backend for EEG fatigue prediction.
+This module implements a FastAPI backend for EEG fatigue prediction and Alzheimer's MRI classification.
 
 Key Features:
 -------------
@@ -11,25 +11,26 @@ Key Features:
 
 2. **Debug Endpoint (`/debug`)**
    - Returns detailed system status and error information for troubleshooting.
-   - Shows import errors, model loading failures, and component availability.
 
 3. **EEG Prediction Endpoint (`/predict/eeg`)**
-   - Accepts EEG data as CSV (EDF support planned for future).
+   - Accepts EEG data as CSV.
    - Preprocesses EEG data before prediction when available.
    - Predicts fatigue level using a loaded ML model.
    - Falls back to dummy predictions with helpful error messages when components fail.
 
-4. **CORS Middleware**
+4. **Alzheimer's MRI Prediction Endpoint (`/predict/alzheimers`)**
+   - Accepts MRI image files (JPEG/PNG).
+   - Returns prediction with confidence score and attention map overlay.
+
+5. **CORS Middleware**
    - Allows independent frontend-backend communication.
    - Configured for Streamlit frontend integration.
 
-5. **Model & Preprocessing Management**
+6. **Model & Preprocessing Management**
    - Dynamically imports preprocessing and model components with graceful failure handling.
    - Logs detailed warnings for debugging component failures.
    - Supports "development" mode with informative dummy responses.
 
-6. **EDF Support (Future)**
-   - Placeholder `read_edf_to_dataframe` for future EDF file integration.
 
 Development Notes:
 ------------------
@@ -50,8 +51,12 @@ import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from xgboost import XGBClassifier
+#from xgboost import XGBClassifier
+#TODO: Check if above is necessary for Deployment
+
+# Set path before module imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ml_logic'))
 
 
 # === Configure Logging ===
@@ -60,103 +65,176 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# === Dummy Response Generator ===
-def create_dummy_response(user_document: str, mode: str):
-    """Generate dummy response for development/testing"""
-    dummy_classes = ["0*", "1*"]
-    return {
-        "backend_status": f"development_mode_{mode}",
-        "fatigue_class": random.choice(dummy_classes),
-        "confidence": round(random.uniform(0.7, 0.95), 2),
-        "filename": user_document,
-        "note": "It appears our analysis tools are offline.\n\
-            We're sorry about that. We're fixing it now.\n\
-            We should be back online and happy to help soon."
-        }
 
-# === EDF File Support (Post MVP) ===
-## EDF file support requires mne package
-
-## Attempt to import mne for EDF file support
-# try:
-#     import mne  # for EDF files
-#     EDF_SUPPORT = True
-
-# except ImportError:
-#     EDF_SUPPORT = False
-
-
-# # === EDF Reader Function (Post MVP) ===
-# def read_edf_to_dataframe(file_obj):
-#     """Stub for EDF file parsing. Requires mne to implement."""
-#     raise NotImplementedError("EDF file support not yet implemented. Use CSV instead.")
-
-# === Require Named File for User Input===
-def require_filename(file) -> str:
-    """Ensures file and filename are present, returns lowercase name or raises ValueError."""
-    if not file or not file.filename:
-        raise ValueError("Expected a file with a valid filename")
-    return file.filename.lower()
-
-
-# === Import Processing Function ===
-# Attempt to import preprocessing components
-PREPROCESS_AVAILABLE = False
-PREPROCESS_IMPORT_ERROR = None
+# === Import EEG Processing Function ===
+# Attempt to import EEG preprocessing components.
+# If it fails, set to False and log warning.
+PREPROCESS_EEG_AVAILABLE = False
+PREPROCESS_EEG_IMPORT_ERROR = None
 PREPROCESS_EEG = None
 try:
     from neurocheck.ml_logic.preprocess import preprocess_eeg_df as PREPROCESS_EEG
-    PREPROCESS_AVAILABLE = True
-# If it fails, set to False and log warning.
-# This allows the backend to run even if preprocessing is not available.
+    PREPROCESS_EEG_AVAILABLE = True
 except ImportError as e:
     logging.warning("Preprocessor function load failed: %s", e)
-    PREPROCESS_IMPORT_ERROR = str(e)
+    PREPROCESS_EEG_IMPORT_ERROR = str(e)
 
 
-# === Model Module Import ===
-# Attempt to import model components that will be instantiated and called later
-MODEL_AVAILABLE = False
+# === Import EEG Model Components ===
+# Attempt to import model components that will be instantiated and called later.
+MODEL_EEG_AVAILABLE = False
 ML_LOAD_EEG_MODEL = None
-MODEL_IMPORT_ERROR = None
+MODEL_EEG_IMPORT_ERROR = None
 try:
     from neurocheck.ml_logic.registry import retrieve_model as ml_load_eeg_model
     ML_LOAD_EEG_MODEL = ml_load_eeg_model
-    MODEL_AVAILABLE = True
+    MODEL_EEG_AVAILABLE = True
 except ImportError as e:
     logging.warning("Model import function failed: %s", e)
-    MODEL_IMPORT_ERROR = str(e)
+    MODEL_EEG_IMPORT_ERROR = str(e)
 
-
-# === Load Model At Startup ===
-MODEL_LOADED = False
-EEG_MODEL = None
+# === Load EEG Model At Startup ===
+MODEL_EEG_LOADED = False
+MODEL_EEG_RUN = None
 MODEL_LOADING_ERROR = None
-if MODEL_AVAILABLE:
+if MODEL_EEG_AVAILABLE:
     try:
-        EEG_MODEL = ML_LOAD_EEG_MODEL(stage="Production")
-        if EEG_MODEL is None:
+        MODEL_EEG_RUN = ML_LOAD_EEG_MODEL(stage="Production")
+        if MODEL_EEG_RUN is None:
             raise ValueError("Model loader returned None")
         else:
             logging.info("Model loaded successfully")
-            MODEL_LOADED = True
+            MODEL_EEG_LOADED = True
     except (FileNotFoundError, IOError, ValueError, RuntimeError) as e:
         logging.warning("Failed to load model: %s", e)
         MODEL_LOADING_ERROR = str(e)
 
+# === Import Alzheimer's Modules ===
+ALZHEIMERS_AVAILABLE = False
+ALZHEIMERS_IMPORT_ERROR = None
+PREDICT_ALZHEIMERS_IMAGE = None
+RESIZE_ALZHEIMERS_UPLOAD = None
+
+try:
+    from neurocheck.ml_logic.alzheimers.alzheimers_model \
+        import predict as predict_alzheimers_image
+    from neurocheck.ml_logic.alzheimers.alzheimers_preprocess \
+        import resize_upload as resize_alzheimers_upload
+
+    PREDICT_ALZHEIMERS_IMAGE = predict_alzheimers_image
+    RESIZE_ALZHEIMERS_UPLOAD = resize_alzheimers_upload
+    ALZHEIMERS_AVAILABLE = True
+    logging.info("Alzheimer's modules loaded successfully")
+except ImportError as e:
+    logging.warning("Alzheimer's modules load failed: %s", e)
+    ALZHEIMERS_IMPORT_ERROR = str(e)
+
+# === Helper Functions ===
+def create_eeg_dummy_response(bad_eeg_filename: str, error_type: str):
+    """Generate consistent dummy response for EEG predictions"""
+    return {
+        "backend_status": f"development_mode_{error_type}",
+        "fatigue_class": str(random.choice([0, 1])) + "*",
+        "confidence": round(random.uniform(0.7, 0.95), 2),
+        "filename": bad_eeg_filename,
+        "note": "Analysis tools offline. We're fixing it and should be back soon."
+    }
+
+def create_alzheimers_dummy_response(filename: str, error_type: str):
+    """Generate consistent dummy response for Alzheimer's predictions"""
+    dummy_classes = ["Normal", "Mild Cognitive Impairment", "Alzheimer's Disease"]
+    return {
+        "backend_status": f"development_mode_{error_type}",
+        "prediction": random.choice(dummy_classes) + "*",
+        "confidence": round(random.uniform(0.7, 0.95), 2),
+        "filename": filename,
+        "overlay": None,
+        "note": "Analysis tools offline. We're fixing it and should be back soon."
+    }
+
+def require_filename(received_file) -> str:
+    """Ensures file and filename are present, returns lowercase name or raises ValueError."""
+    if not received_file or not received_file.filename:
+        raise ValueError("Expected a file with a valid filename")
+    return received_file.filename.lower()
+
+
+# === Status Management ===
+class ComponentStatus:
+    """
+    Centralized status manager for backend components and error tracking.
+
+    Tracks availability and errors for all backend components (preprocessing,
+    models, etc.) and provides standardized methods for determining service
+    mode and error reporting.
+
+    Attributes:
+        components (dict): Component availability and error state tracking
+
+    Methods:
+        get_service_mode(): Returns 'production', 'partial', or 'development'
+        get_errors(): Returns dict of components with active errors
+    """
+    def __init__(self):
+        self.components = {
+            'eeg_preprocessing': {
+                'available': PREPROCESS_EEG_AVAILABLE,
+                'error': PREPROCESS_EEG_IMPORT_ERROR
+            },
+            'eeg_model': {
+                'available': MODEL_EEG_LOADED,
+                'error': MODEL_EEG_IMPORT_ERROR or MODEL_LOADING_ERROR
+            },
+            'alzheimers': {
+                'available': ALZHEIMERS_AVAILABLE,
+                'error': ALZHEIMERS_IMPORT_ERROR
+            }
+        }
+
+    def get_service_mode(self):
+        """
+        Determine the current operational mode of the service.
+
+        Returns:
+            str: One of the following modes based on component availability:
+                - 'production': All core components are available.
+                - 'partial': Some components are available.
+                - 'development': No components are available.
+        """
+        if (self.components['eeg_preprocessing']['available'] and
+            self.components['eeg_model']['available']):
+            return 'production'
+        elif any(comp['available'] for comp in self.components.values()):
+            return 'partial'
+        else:
+            return 'development'
+
+    def get_errors(self):
+        """
+        Retrieve a dictionary of components with active errors.
+
+        Returns:
+            dict: A mapping of component names to their error messages or flags,
+                  including only those components currently in an error state.
+        """
+        return {name: comp['error'] for name, comp
+                in self.components.items() if comp['error']}
+
+# Initialize status manager
+status_manager = ComponentStatus()
+
 # === Initialize FastAPI App ===
 app = FastAPI(
     title="NeuroCheck Backend",
-    description="EEG Fatigue Prediction Backend",
-    version="0.4.2"
+    description="Neurocheck Backend for EEG and Alzheimers",
+    version="0.5.1"
 )
-
 
 # === CORS Functionality for Independent Front End, Back End Communication ===
 # https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
 
 # Define Sources Assigned Full BackEnd API Calling Capabilities
-# Revisit removing localhost capabilities after successful debugged deployment
+# TODO: Revisit removing localhost capabilities after successful debugged deployment
 ALLOWED_ORIGINS = [
     "http://localhost:8501",  # local Streamlit dev
     "https://neurocheck-frontend.streamlit.app", # Deployed Streamlit App
@@ -171,7 +249,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # === Health Check Endpoint, Check If Backend Online===
 @app.get("/health")
 def health_check():
@@ -180,66 +257,56 @@ def health_check():
 
     Returns:
         dict: A JSON response containing:
-        - status: Service availability ("online", "degraded", "offline")
+        - status: Service availability ("online", "degraded")
         - version: Current API version
         - message: User-friendly status message
-        - components: Detailed component availability and operational mode
+        - mode: Operational mode ("production", "partial", "development")
+        - components: Component availability status for each service
         - endpoints: Available API endpoints for discovery
     """
-    if PREPROCESS_AVAILABLE and MODEL_LOADED:
-        service_status = "online"
-        mode = "production"
-    elif MODEL_LOADED or PREPROCESS_AVAILABLE:
-        service_status = "degraded"
-        mode = "partial"
-    else:
-        service_status = "degraded"
-        mode = "development"
-    health_status = {
+    mode = status_manager.get_service_mode()
+    service_status = "online" if mode == "production" else "degraded"
+
+    return {
         "status": service_status,
-        "version": "0.4.2",
-        "message": "Backend is running! Use /predict/eeg for predictions.",
-        "components": {
-            "preprocessing": PREPROCESS_AVAILABLE,
-            "model": MODEL_LOADED,
-            "mode": mode if (PREPROCESS_AVAILABLE and MODEL_LOADED) else f"{mode}: See '/debug'"
-        },
-        "endpoints": ["/health", "/debug", "/predict/eeg"]
+        "version": "0.5.1",
+        "message": "Backend is running!",
+        "mode": mode,
+        "components": {name: comp['available'] for name, comp in status_manager.components.items()},
+        "endpoints": ["/health", "/debug", "/predict/eeg", "/predict/alzheimers"]
     }
-    return health_status
 
 # === Debug Endpoint ===
 @app.get("/debug")
 def debug_status():
     """
-    Returns system status information for debugging.
+    Returns comprehensive system status information for debugging.
 
-    Provides current state of model loading, preprocessing availability,
-    and detailed error messages for troubleshooting component failures.
+    Provides detailed component status, operational mode, and specific error
+    messages for troubleshooting component failures. Use this endpoint when
+    components fail to load or when the service is in degraded mode.
+
+    Returns:
+        dict: Debug information containing:
+        - mode: Current operational mode
+        - components: Detailed component status and error information
+        - errors: Active error messages or success confirmation
     """
-    errors = {}
-
-    if PREPROCESS_IMPORT_ERROR:
-        errors["preprocess_import"] = PREPROCESS_IMPORT_ERROR
-    if MODEL_IMPORT_ERROR:
-        errors["model_import"] = MODEL_IMPORT_ERROR
-    if MODEL_LOADING_ERROR:
-        errors["model_loading"] = MODEL_LOADING_ERROR
+    errors = status_manager.get_errors()
     return {
-        "MODEL_AVAILABLE": MODEL_AVAILABLE,
-        "MODEL_LOADED": MODEL_LOADED,
-        "PREPROCESS_AVAILABLE": PREPROCESS_AVAILABLE,
+        "mode": status_manager.get_service_mode(),
+        "components": status_manager.components,
         "errors": errors if errors else "No errors: All components loaded successfully"
     }
 
 # === EEG Prediction Endpoint ===
 @app.post("/predict/eeg")
-async def predict_eeg(file: UploadFile = File(...)):
+async def predict_eeg(eeg_file: UploadFile = File(...)):
     """
     EEG prediction endpoint with comprehensive error handling and fallback responses.
 
     Accepts:
-        - CSV file uploads (EDF support planned for future)
+        - CSV file uploads
 
     Process:
         - Reads uploaded EEG file → DataFrame with column cleaning
@@ -256,19 +323,17 @@ async def predict_eeg(file: UploadFile = File(...)):
             - preprocessing_used: Boolean indicating if preprocessing succeeded
             - note: Error explanation (in dummy responses only)
     """
-    user_file_name = require_filename(file)
+    user_eeg_file_name = require_filename(eeg_file)
 
 
     # Step 1: Load EEG into DataFrame
     try:
-        if user_file_name.endswith(".csv"):
-            contents = await file.read()
-            eeg_df = pd.read_csv(BytesIO(contents))
+        if user_eeg_file_name.endswith(".csv"):
+            eeg_contents = await eeg_file.read()
+            eeg_df = pd.read_csv(BytesIO(eeg_contents))
             eeg_df.columns = eeg_df.columns.str.strip()
-        # elif user_file_name.endswith(".edf"):
-        #     eeg_df = read_edf_to_dataframe(file.file)  # Not yet implemented
         else:
-            logging.warning("Unsupported file format: %s", user_file_name)
+            logging.warning("Unsupported file format: %s", user_eeg_file_name)
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported file format. Please upload CSV."
@@ -283,41 +348,117 @@ async def predict_eeg(file: UploadFile = File(...)):
 
 
     # Step 2: Try preprocessing
-    preprocessing_success = False
+    preprocessing_eeg_success = False
     proc_eeg_df = eeg_df
 
-    if PREPROCESS_AVAILABLE and PREPROCESS_EEG:
+    if PREPROCESS_EEG_AVAILABLE and PREPROCESS_EEG:
         try:
             proc_eeg_df = PREPROCESS_EEG(eeg_df)
             logging.info("Preprocessing completed successfully")
-            preprocessing_success = True
+            preprocessing_eeg_success = True
         except (ValueError, RuntimeError) as e:
             logging.warning("Preprocessing failed: %s", e)
 
     # Step 3: Try predicting
-    if MODEL_LOADED and EEG_MODEL:
+    if MODEL_EEG_LOADED and MODEL_EEG_RUN:
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
             logging.info("Using columns for prediction: %s", proc_eeg_df.columns.tolist())
-            proba = float(EEG_MODEL.predict_proba(proc_eeg_df)[0, 1])
-            prediction = int(proba > 0.45)  # apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
+            proba_eeg = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
+            # Apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
+            prediction_eeg = int(proba_eeg > 0.45)
             result = {
                 "backend_status": "Production",
-                "fatigue_class": str(prediction),
-                "confidence": round(proba if prediction == 1 else 1 - proba, 4),
-                #Calculate's the confidence in the predicted class, not just fatigued.
-                "filename": user_file_name,
-                "preprocessing_used": preprocessing_success
+                "fatigue_class": str(prediction_eeg),
+                "confidence": round(proba_eeg if prediction_eeg == 1 else 1 - proba_eeg, 4),
+                "filename": user_eeg_file_name,
+                "preprocessing_used": preprocessing_eeg_success
             }
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
-            result = create_dummy_response(user_file_name, f"prediction_error: {str(e)}")
+            result = create_eeg_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
 
     else:
-        result = create_dummy_response(user_file_name, "Development")
+        result = create_eeg_dummy_response(user_eeg_file_name, "Development")
 
     return result
+
+
+# === Alzheimer's MRI Prediction Endpoint ===
+@app.post("/predict/alzheimers")
+async def predict_alzheimers(alz_file: UploadFile = File(...)):
+    """
+    Alzheimer's MRI image classification endpoint with comprehensive error handling.
+
+    Accepts:
+        - Image files (JPEG/PNG/JPG)
+
+    Process:
+        - Reads uploaded image file
+        - Resizes image using preprocessing module when available
+        - Predicts Alzheimer's classification using loaded model
+        - Falls back to informative dummy responses when components fail
+
+    Returns:
+        dict: JSON response containing:
+            - backend_status: "Production" or "development_mode_[error_type]"
+            - prediction: Model's predicted class label or dummy prediction
+            - confidence: Model confidence score (0-1) or dummy confidence
+            - filename: Original uploaded filename
+            - overlay: Base64-encoded attention overlay (when available)
+            - note: Error explanation (in dummy responses only)
+    """
+    alz_filename = require_filename(alz_file)
+
+    # Step 1: Validate file format
+    if not alz_filename.endswith(('.jpg', '.jpeg', '.png')):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload JPEG or PNG image."
+        )
+
+    # Step 2: Try processing with full pipeline
+    if ALZHEIMERS_AVAILABLE and RESIZE_ALZHEIMERS_UPLOAD and PREDICT_ALZHEIMERS_IMAGE:
+        try:
+            alz_contents = await alz_file.read()
+            alz_image = RESIZE_ALZHEIMERS_UPLOAD(alz_contents)
+
+            # Get prediction result - check what the function actually returns
+            alz_prediction_output = PREDICT_ALZHEIMERS_IMAGE(alz_image)
+
+            # Handle different return formats
+            if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
+                alz_result, alz_overlay_b64 = alz_prediction_output
+                alz_label = alz_result.get("label", str(alz_result)) \
+                    if isinstance(alz_result, dict) else str(alz_result)
+                alz_confidence = alz_result.get("score", 0.5) \
+                    if isinstance(alz_result, dict) else 0.5
+            else:
+                # Single return value
+                alz_result = alz_prediction_output
+                alz_overlay_b64 = None
+                alz_label = alz_result.get("label", str(alz_result)) \
+                    if isinstance(alz_result, dict) else str(alz_result)
+                alz_confidence = alz_result.get("score", 0.5) \
+                    if isinstance(alz_result, dict) else 0.5
+
+            return {
+                "backend_status": "Production",
+                "prediction": alz_label,
+                "confidence": alz_confidence,
+                "filename": alz_filename,
+                "overlay": alz_overlay_b64
+            }
+
+        except (ValueError, RuntimeError, IOError) as alz_error:
+            logging.warning("Alzheimer prediction failed: %s", alz_error)
+            return create_alzheimers_dummy_response(alz_filename,
+            f"prediction_error: {str(alz_error)}")
+
+    else:
+        # Fallback to dummy response
+        return create_alzheimers_dummy_response(alz_filename, "development")
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
