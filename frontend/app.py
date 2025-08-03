@@ -7,6 +7,9 @@ import streamlit as st
 from utils.api_client import call_eeg_api
 from PIL import Image
 # import io  # Uncomment later if sending image bytes to backend
+
+st.set_page_config(page_title="NeuroCheck", layout="centered")
+
 #layyout, colours, fonts
 def inject_css():
     st.markdown("""
@@ -34,6 +37,7 @@ def inject_css():
             color: white;
             border-radius: 8px;
             font-weight: bold;
+            padding: 0.5em 1em;
         }
         .stFileUploader label {
             font-weight: 600;
@@ -49,9 +53,10 @@ def inject_css():
         </style>
     """, unsafe_allow_html=True)
 
+
 inject_css()  # Call it at the top of main script
 # Set up the Streamlit app with two tabs
-st.set_page_config(page_title="NeuroCheck", layout="centered")
+
 tab1, tab2 = st.tabs(["EEG Fatigue Detector", "Alzheimer MRI Classifier"])
 
 # === EEG Tab ===
@@ -131,8 +136,12 @@ with tab2:
         if "error" in result:
             st.error(f"❌ Error: {result['error']}")
         else:
-            st.success(f"Prediction: **{result['prediction']}**")
-            st.write(f"Confidence: {result['confidence']:.2f}")
+            st.markdown(f"""
+                <div class='result-card'>
+                    <h3>Prediction: {result['prediction']}</h3>
+                    <p>Confidence: {result['confidence']:.2f}</p>
+                </div>
+            """, unsafe_allow_html=True)
 
             if "overlay" in result:
                 st.image(
@@ -140,10 +149,3 @@ with tab2:
                     caption="Attention Map Overlay",
                     use_column_width=True
                 )
-
-            st.markdown(f"""
-                <div class='result-card'>
-                <h3>Prediction: {result['prediction']}</h3>
-                <p>Confidence: {result['confidence']:.2f}</p>
-            </div>
-            """, unsafe_allow_html=True)
