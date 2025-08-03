@@ -87,3 +87,6 @@ Thumbs.db
 
 # Streamlit cache and logs
 .streamlit/
+
+# Ignoring models from Git
+models/

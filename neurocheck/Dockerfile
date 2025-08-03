@@ -47,3 +47,56 @@ EXPOSE 8080
 
 # Command to start FastAPI app with Uvicorn
 CMD ["uvicorn", "neurocheck.api_folder.api_file:app", "--host", "0.0.0.0", "--port", "8080"]
+
+
+
+
+# # === Step 01: Build Base Image ===
+# FROM python:3.10-slim AS base
+
+# # Environment variables to improve Python behavior
+# ENV PYTHONDONTWRITEBYTECODE=1 \
+#     PYTHONUNBUFFERED=1 \
+#     TRANSFORMERS_CACHE=/app/cache/huggingface
+
+# # Set working directory
+# WORKDIR /app
+
+# # Install system dependencies
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#     gcc \
+#     gfortran \
+#     libatlas-base-dev \
+#     libgl1 \
+#     && rm -rf /var/lib/apt/lists/*
+
+# # === Step 02: Install Python Dependencies in a Builder Stage ===
+# FROM base AS builder
+
+# COPY requirements.txt .
+
+# # Install dependencies into /install
+# RUN pip install --upgrade pip && \
+#     pip install --prefix=/install -r requirements.txt
+
+# # === Step 03: Final Runtime Image ===
+# FROM base
+
+# # Copy installed packages from builder
+# COPY --from=builder /install /usr/local
+
+# # Copy backend code
+# COPY . /app/neurocheck
+
+# # Create Hugging Face model cache folder
+# RUN mkdir -p /app/cache/huggingface
+
+# # Preload Alzheimer model to cache (avoids runtime download)
+# RUN python -c "from transformers import pipeline; pipeline('image-classification', model='DHEIVER/Alzheimer-MRI')"
+
+# # Expose FastAPI port
+# EXPOSE 8080
+
+# # Start FastAPI backend
+# CMD ["uvicorn", "neurocheck.api_folder.api_file:app", "--host", "0.0.0.0", "--port", "8080"]
