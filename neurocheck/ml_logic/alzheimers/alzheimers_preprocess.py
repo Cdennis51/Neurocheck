@@ -1,34 +1,21 @@
+import io
 from PIL import Image
-import io 
+
 
 def resize_upload(uploaded_image_bytes):
+    """
+    Prepare both original and resized versions of the uploaded image.
 
-    #Convert to PIL image
-    image = Image.open(io.BytesIO(uploaded_image_bytes))
-    image = image.convert('L')
-    image = image.resize((224,224)) # Must be a tuple.
+    Args:
+        uploaded_image_bytes (bytes): Raw image file content from UploadFile.read()
 
-    return image
+    Returns:
+        tuple:
+            - original_image (PIL.Image): Original grayscale image
+            - resized_image (PIL.Image): Resized image (224x224) for model input
+    """
+    image = Image.open(io.BytesIO(uploaded_image_bytes)).convert('L')
+    original_image = image.copy()
+    resized_image = image.resize((224, 224))  # Model expects 224x224
 
-
-# Method 1: FastAPI with file upload
-from fastapi import FastAPI, File, UploadFile
-from PIL import Image
-import io
-
-app = FastAPI()
-
-@app.post("/predict/")
-async def predict_image(file: UploadFile = File(...)):
-
-    # Read the uploaded file
-    contents = await file.read()
-
-    image = resize_upload(contents)
-
-    print(f"Processed image: {image}")  # Will show: <PIL.Image.Image image mode=L size=128x128>
-
-    # Use with classifier
-    result = predict(image)
-
-    return {"Prediction": result}
+    return original_image, resized_image

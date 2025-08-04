@@ -50,8 +50,7 @@ import random
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-#from xgboost import XGBClassifier
+from xgboost import XGBClassifier
 #TODO: Check if above is necessary for Deployment
 
 # Set path before module imports
@@ -364,6 +363,9 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
             logging.info("Using columns for prediction: %s", proc_eeg_df.columns.tolist())
+            logging.info(f"Processed EEG shape: {proc_eeg_df.shape}")
+            logging.info(f"Processed EEG dtypes: {proc_eeg_df.dtypes}")
+            logging.info(f"Sample values: \n{proc_eeg_df.head()}")
             proba_eeg = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
             # Apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
             prediction_eeg = int(proba_eeg > 0.45)
@@ -388,78 +390,33 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
 # === Alzheimer's MRI Prediction Endpoint ===
 @app.post("/predict/alzheimers")
 async def predict_alzheimers(alz_file: UploadFile = File(...)):
-    """
-    Alzheimer's MRI image classification endpoint with comprehensive error handling.
+    filename = require_filename(alz_file)
+    if not filename.endswith(('.jpg', '.jpeg', '.png')):
+        raise HTTPException(status_code=400, detail="Unsupported file format. Please upload JPEG or PNG image.")
 
-    Accepts:
-        - Image files (JPEG/PNG/JPG)
-
-    Process:
-        - Reads uploaded image file
-        - Resizes image using preprocessing module when available
-        - Predicts Alzheimer's classification using loaded model
-        - Falls back to informative dummy responses when components fail
-
-    Returns:
-        dict: JSON response containing:
-            - backend_status: "Production" or "development_mode_[error_type]"
-            - prediction: Model's predicted class label or dummy prediction
-            - confidence: Model confidence score (0-1) or dummy confidence
-            - filename: Original uploaded filename
-            - overlay: Base64-encoded attention overlay (when available)
-            - note: Error explanation (in dummy responses only)
-    """
-    alz_filename = require_filename(alz_file)
-
-    # Step 1: Validate file format
-    if not alz_filename.endswith(('.jpg', '.jpeg', '.png')):
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file format. Please upload JPEG or PNG image."
-        )
-
-    # Step 2: Try processing with full pipeline
-    if ALZHEIMERS_AVAILABLE and RESIZE_ALZHEIMERS_UPLOAD and PREDICT_ALZHEIMERS_IMAGE:
+    if ALZHEIMERS_AVAILABLE:
         try:
-            alz_contents = await alz_file.read()
-            alz_image = RESIZE_ALZHEIMERS_UPLOAD(alz_contents)
+            content = await alz_file.read()
 
-            # Get prediction result - check what the function actually returns
-            alz_prediction_output = PREDICT_ALZHEIMERS_IMAGE(alz_image)
+            # Preprocess uploaded image to get original and resized versions
+            original_image, resized_image = RESIZE_ALZHEIMERS_UPLOAD(content)
 
-            # Handle different return formats
-            if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
-                alz_result, alz_overlay_b64 = alz_prediction_output
-                alz_label = alz_result.get("label", str(alz_result)) \
-                    if isinstance(alz_result, dict) else str(alz_result)
-                alz_confidence = alz_result.get("score", 0.5) \
-                    if isinstance(alz_result, dict) else 0.5
-            else:
-                # Single return value
-                alz_result = alz_prediction_output
-                alz_overlay_b64 = None
-                alz_label = alz_result.get("label", str(alz_result)) \
-                    if isinstance(alz_result, dict) else str(alz_result)
-                alz_confidence = alz_result.get("score", 0.5) \
-                    if isinstance(alz_result, dict) else 0.5
+            # Run prediction and generate overlay
+            result, overlay_b64 = PREDICT_ALZHEIMERS_IMAGE(resized_image, original_image)
+
+            label = result.get("label", str(result)) if isinstance(result, dict) else str(result)
+            confidence = result.get("score", 0.5) if isinstance(result, dict) else 0.5
 
             return {
                 "backend_status": "Production",
-                "prediction": alz_label,
-                "confidence": alz_confidence,
-                "filename": alz_filename,
-                "overlay": alz_overlay_b64
+                "prediction": label,
+                "confidence": confidence,
+                "filename": filename,
+                "overlay": overlay_b64
             }
 
-        except (ValueError, RuntimeError, IOError) as alz_error:
-            logging.warning("Alzheimer prediction failed: %s", alz_error)
-            return create_alzheimers_dummy_response(alz_filename,
-            f"prediction_error: {str(alz_error)}")
-
+        except Exception as e:
+            logging.warning("Alzheimer prediction error: %s", e)
+            return create_alzheimers_dummy_response(filename, f"prediction_error: {str(e)}")
     else:
-        # Fallback to dummy response
-        return create_alzheimers_dummy_response(alz_filename, "development")
-
-# === Local Dev Server Runner ===
-if __name__ == "__main__":
-    uvicorn.run("neurocheck.api_folder.api_file:app", host="0.0.0.0", port=8000, reload=True)
+        return create_alzheimers_dummy_response(filename, "Development")
