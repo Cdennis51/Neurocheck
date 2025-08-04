@@ -8,8 +8,55 @@ from utils.api_client import call_eeg_api
 from PIL import Image
 # import io  # Uncomment later if sending image bytes to backend
 
-# Set up the Streamlit app with two tabs
 st.set_page_config(page_title="NeuroCheck", layout="centered")
+
+#layyout, colours, fonts
+def inject_css():
+    st.markdown("""
+        <style>
+        body {
+            background-color: #f7f9fc;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        header, footer {visibility: hidden;}
+        .block-container {
+            padding-top: 2rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background-color: #eaf4f4;
+            border-radius: 6px;
+            padding: 10px;
+            margin-right: 5px;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #205375 !important;
+            color: white !important;
+        }
+        div.stButton > button {
+            background-color: #205375;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            padding: 0.5em 1em;
+        }
+        .stFileUploader label {
+            font-weight: 600;
+            color: #205375;
+        }
+        .result-card {
+            background-color: #eaf4f4;
+            padding: 1rem;
+            border-left: 5px solid #205375;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+inject_css()  # Call it at the top of main script
+# Set up the Streamlit app with two tabs
+
 tab1, tab2 = st.tabs(["EEG Fatigue Detector", "Alzheimer MRI Classifier"])
 
 # === EEG Tab ===
@@ -36,6 +83,14 @@ with tab1:
             # Convert numeric string to readable label
             fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
             display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+
+            #wraps prediction in styled card
+            st.markdown(f"""
+                <div class='result-card'>
+                    <h3>Prediction: {display_result}</h3>
+                    <p>Confidence Level: {result['confidence']:.2f}</p>
+                </div>
+            """, unsafe_allow_html=True)
 
             st.success(f"Prediction: **{display_result}**")
             if "confidence" in result:
@@ -74,15 +129,19 @@ with tab2:
     #   - Receiving the classification result
     #   - Displaying the predicted label and confidence score
 
-        # This additional section will upload and show the MRI Image, discplay prediction and confidence and display attention map. 
+        # This additional section will upload and show the MRI Image, discplay prediction and confidence and display attention map.
         with st.spinner("Analyzing MRI..."):
             result = call_mri_api(uploaded_mri_file)
 
         if "error" in result:
             st.error(f"❌ Error: {result['error']}")
         else:
-            st.success(f"Prediction: **{result['prediction']}**")
-            st.write(f"Confidence: {result['confidence']:.2f}")
+            st.markdown(f"""
+                <div class='result-card'>
+                    <h3>Prediction: {result['prediction']}</h3>
+                    <p>Confidence: {result['confidence']:.2f}</p>
+                </div>
+            """, unsafe_allow_html=True)
 
             if "overlay" in result:
                 st.image(
