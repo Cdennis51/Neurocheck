@@ -52,9 +52,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from xgboost import XGBClassifier
 
-# Set up path Before imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ml_logic'))
 # importing the alzheimers modules
 from alzheimers.alzheimers_model import predict as predict_alzheimers_image
 from alzheimers.alzheimers_preprocess import resize_upload
