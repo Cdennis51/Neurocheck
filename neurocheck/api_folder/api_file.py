@@ -130,6 +130,8 @@ except ImportError as e:
     logging.warning("Alzheimer's modules load failed: %s", e)
     ALZHEIMERS_IMPORT_ERROR = str(e)
 
+
+
 # === Helper Functions ===
 def create_eeg_dummy_response(bad_eeg_filename: str, error_type: str):
     """Generate consistent dummy response for EEG predictions"""
@@ -428,9 +430,8 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
             alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
 
             # Get prediction result - check what the function actually returns
-            alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE,\
-                                                            alz_image[1], alz_image[0]
-)
+            alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
+
 
             # Handle different return formats
             if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
@@ -467,4 +468,4 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
-    uvicorn.run("neurocheck.api_folder.api_file:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("neurocheck.api_folder.api_file:app", host="0.0.0.0", port=8000)

@@ -1,77 +1,69 @@
-
+from transformers import pipeline, AutoImageProcessor
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from PIL import Image
+import numpy as np
+import torch
+import cv2  # pylint: disable=no-member
 import base64
 from io import BytesIO
-import os
-import torch
-import numpy as np
-import cv2
-from PIL import Image
-from transformers import ViTImageProcessor, ViTForImageClassification, pipeline
-from pytorch_grad_cam.utils.image import show_cam_on_image
 
-# === Cache Directory ===
-CACHE_DIR = "./neurocheck/hf_cache"
-os.environ["HF_HOME"] = CACHE_DIR
-os.environ["TRANSFORMERS_CACHE"] = CACHE_DIR
+# Device setup
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-# === Device Selection ===
-device = torch.device("cpu")  # Change to MPS if ready
+# Global variables for lazy loading
+classifier = None
+processor = None
+model = None
 
-# === Load Model ===
-model_name = "DHEIVER/Alzheimer-MRI"
-model = ViTForImageClassification.from_pretrained(model_name, cache_dir=CACHE_DIR, local_files_only=False)
-processor = ViTImageProcessor.from_pretrained(model_name, cache_dir=CACHE_DIR, local_files_only=False)
-classifier = pipeline("image-classification", model=model, feature_extractor=processor)
-model = classifier.model.to(device)
+def _load_model():
+    """Load model components on first use"""
+    global classifier, processor, model
+    if classifier is None:
+        classifier = pipeline("image-classification",
+                             model="DHEIVER/Alzheimer-MRI",
+                             device=device.index if device.type != "cpu" else -1)
+        processor = AutoImageProcessor.from_pretrained("DHEIVER/Alzheimer-MRI")
+        model = classifier.model.to(device)
 
-# === Helpers ===
-def create_brain_mask(image: Image.Image):
-    gray = np.array(image.convert("L"))
-    return gray > 30
-
-def generate_attention_overlay(resized: Image.Image, original: Image.Image):
-    brain_mask = create_brain_mask(resized)
-    inputs = processor(images=resized.convert("RGB"), return_tensors="pt")
+def generate_attention_overlay(image: Image.Image) -> np.ndarray:
+    _load_model()  # Ensure model is loaded
+    # Prepare input
+    inputs = processor(images=image.convert("RGB"), return_tensors="pt", do_resize=False)
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
+    # Forward pass with attention
     with torch.no_grad():
         outputs = model(**inputs, output_attentions=True)
 
-    attentions = torch.stack(outputs.attentions)
-    avg_attn = attentions[-1][0].mean(0)
-    cls_map = avg_attn[0, 1:].reshape(14, 14).cpu().numpy()
-    attn_resized = cv2.resize(cls_map, resized.size)
-    attn_masked = attn_resized * brain_mask.astype(float)
+    # Process attention map
+    attentions = torch.stack(outputs.attentions)  # pylint: disable=no-member
+    last_layer_attn = attentions[-1][0]                     # (heads, tokens, tokens)
+    avg_attn = last_layer_attn.mean(0)                      # (tokens, tokens)
+    cls_attn = avg_attn[0, 1:]                              # attention from CLS to all patches
+    cls_map = cls_attn.reshape(14, 14).cpu().numpy()        # (14x14)
 
-    if attn_masked.max() > attn_masked.min():
-        attn_normalized = (attn_masked - attn_masked.min()) / (attn_masked.max() - attn_masked.min())
-    else:
-        attn_normalized = attn_masked
+    # Resize and normalize
+    attn_resized = cv2.resize(cls_map, (224, 224))  # pylint: disable=no-member
+    attn_resized = (attn_resized - attn_resized.min()) / (attn_resized.max() - attn_resized.min())
 
-    input_np = np.array(resized.convert("RGB")).astype(np.float32) / 255.0
-    overlay_resized = show_cam_on_image(input_np, attn_normalized, use_rgb=True)
-    overlay_upscaled = Image.fromarray(overlay_resized).resize(original.size)
-    overlay_final = np.array(overlay_upscaled)
+    # Prepare original image
+    image_resized = image.convert("RGB").resize((224, 224))
+    img_np = np.array(image_resized).astype(np.float32) / 255.0
 
-    return overlay_final
+    # Overlay
+    overlay = show_cam_on_image(img_np, attn_resized, use_rgb=True)
 
-# === Main Predict Function ===
-def predict_alzheimers_image(resized_image, original_image):
-    inputs = processor(images=resized_image.convert("RGB"), return_tensors="pt")
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    return overlay
 
-    with torch.no_grad():
-        outputs = model(**inputs, output_attentions=True)
+def predict_alzheimers_image(resized_image):
+    _load_model()  # Load on first use
+    result = classifier(resized_image)[0]
+    overlay = generate_attention_overlay(resized_image)
 
-    probs = outputs.logits.softmax(dim=-1)
-    label_id = probs.argmax().item()
-    confidence = probs.max().item()
-    label = model.config.id2label[label_id]
-
-    overlay_final = generate_attention_overlay(resized_image, original_image)
-    overlay_pil = Image.fromarray(overlay_final.astype(np.uint8))
+    # Convert overlay to base64 PNG string
+    overlay_pil = Image.fromarray(overlay.astype(np.uint8))
     buffer = BytesIO()
     overlay_pil.save(buffer, format="PNG")
     overlay_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    return {"label": label, "score": confidence}, overlay_base64
+    return result, overlay_base64
