@@ -21,7 +21,7 @@ Usage:
 import glob
 import os
 from colorama import Fore, Style
-from ml_logic.params import *
+from neurocheck.ml_logic.params import *
 import mlflow
 import mlflow.xgboost
 from mlflow.tracking import MlflowClient

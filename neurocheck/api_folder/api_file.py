@@ -49,15 +49,16 @@ import logging
 import random
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-#from xgboost import XGBClassifier
+from xgboost import XGBClassifier
 #TODO: Check if above is necessary for Deployment
 
-# Set path before module imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ml_logic'))
 
+# Set cache directory BEFORE any transformers imports
+os.environ["HF_HOME"] = "./neurocheck/hf_cache"
+os.environ["TRANSFORMERS_CACHE"] = "./neurocheck/hf_cache"
 
 # === Configure Logging ===
 logging.basicConfig(
@@ -112,22 +113,24 @@ if MODEL_EEG_AVAILABLE:
 # === Import Alzheimer's Modules ===
 ALZHEIMERS_AVAILABLE = False
 ALZHEIMERS_IMPORT_ERROR = None
-PREDICT_ALZHEIMERS_IMAGE = None
-RESIZE_ALZHEIMERS_UPLOAD = None
+ALZHEIMERS_MODEL_UPLOAD_RESIZING = None
+ALZHEIMERS_MODEL_PREDICT_IMAGE = None
+
 
 try:
-    from neurocheck.ml_logic.alzheimers.alzheimers_model \
-        import predict as predict_alzheimers_image
     from neurocheck.ml_logic.alzheimers.alzheimers_preprocess \
         import resize_upload as resize_alzheimers_upload
-
-    PREDICT_ALZHEIMERS_IMAGE = predict_alzheimers_image
-    RESIZE_ALZHEIMERS_UPLOAD = resize_alzheimers_upload
+    from neurocheck.ml_logic.alzheimers.alzheimers_model \
+        import predict_alzheimers_image
+    ALZHEIMERS_MODEL_UPLOAD_RESIZING = resize_alzheimers_upload
+    ALZHEIMERS_MODEL_PREDICT_IMAGE = predict_alzheimers_image
     ALZHEIMERS_AVAILABLE = True
     logging.info("Alzheimer's modules loaded successfully")
 except ImportError as e:
     logging.warning("Alzheimer's modules load failed: %s", e)
     ALZHEIMERS_IMPORT_ERROR = str(e)
+
+
 
 # === Helper Functions ===
 def create_eeg_dummy_response(bad_eeg_filename: str, error_type: str):
@@ -227,7 +230,7 @@ status_manager = ComponentStatus()
 app = FastAPI(
     title="NeuroCheck Backend",
     description="Neurocheck Backend for EEG and Alzheimers",
-    version="0.5.1"
+    version="0.6.0"
 )
 
 # === CORS Functionality for Independent Front End, Back End Communication ===
@@ -269,7 +272,7 @@ def health_check():
 
     return {
         "status": service_status,
-        "version": "0.5.1",
+        "version": "0.6.0",
         "message": "Backend is running!",
         "mode": mode,
         "components": {name: comp['available'] for name, comp in status_manager.components.items()},
@@ -364,10 +367,12 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
         try:
             proc_eeg_df.columns = proc_eeg_df.columns.str.strip()
             logging.info("Using columns for prediction: %s", proc_eeg_df.columns.tolist())
-            proba_eeg = float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1])
+
+            proba_eeg = await run_in_threadpool(lambda: float(MODEL_EEG_RUN.predict_proba(proc_eeg_df)[0, 1]))
+
             # Apply custom threshold 0.45 probability >0.45 you get fatigued below - 0 not fatigued.
             prediction_eeg = int(proba_eeg > 0.45)
-            result = {
+            eeg_dummy_result = {
                 "backend_status": "Production",
                 "fatigue_class": str(prediction_eeg),
                 "confidence": round(proba_eeg if prediction_eeg == 1 else 1 - proba_eeg, 4),
@@ -377,12 +382,12 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
 
         except (ValueError, RuntimeError, KeyError) as e:
             logging.warning("Prediction failed: %s", e)
-            result = create_eeg_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
+            eeg_dummy_result = create_eeg_dummy_response(user_eeg_file_name, f"prediction_error: {str(e)}")
 
     else:
-        result = create_eeg_dummy_response(user_eeg_file_name, "Development")
+        eeg_dummy_result = create_eeg_dummy_response(user_eeg_file_name, "Development")
 
-    return result
+    return eeg_dummy_result
 
 
 # === Alzheimer's MRI Prediction Endpoint ===
@@ -419,13 +424,14 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
         )
 
     # Step 2: Try processing with full pipeline
-    if ALZHEIMERS_AVAILABLE and RESIZE_ALZHEIMERS_UPLOAD and PREDICT_ALZHEIMERS_IMAGE:
+    if ALZHEIMERS_AVAILABLE and ALZHEIMERS_MODEL_UPLOAD_RESIZING and ALZHEIMERS_MODEL_PREDICT_IMAGE:
         try:
             alz_contents = await alz_file.read()
-            alz_image = RESIZE_ALZHEIMERS_UPLOAD(alz_contents)
+            alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
 
             # Get prediction result - check what the function actually returns
-            alz_prediction_output = PREDICT_ALZHEIMERS_IMAGE(alz_image)
+            alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
+
 
             # Handle different return formats
             if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
@@ -462,4 +468,4 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":
-    uvicorn.run("neurocheck.api_folder.api_file:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("neurocheck.api_folder.api_file:app", host="0.0.0.0", port=8000)
