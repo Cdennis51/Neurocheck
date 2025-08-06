@@ -90,4 +90,4 @@ Thumbs.db
 
 # Ignoring models from Git
 models/
-neurocheck/hf_cache/
+
