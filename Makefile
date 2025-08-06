@@ -33,21 +33,21 @@ run_pred:
 run_all: run_preprocess run_pred run_evaluate
 
 ######################## API ########################
-#run api locally
+# Run API locally
 run_api:
 	uvicorn neurocheck.api_folder.api_file:app --reload
 
-# Build the Docker image for local deployment
+# Build the Docker image for local deployment (fixed for nested structure)
 build_container_local:
-	docker build --tag=${DOCKER_IMAGE_NAME}:dev .
+	docker build -f neurocheck/Dockerfile --tag=${DOCKER_IMAGE_NAME}:dev .
 
 # Runs the Docker container locally
 run_container_local:
-	docker run -it -e PORT=8000 -p 8080:8000 ${DOCKER_IMAGE_NAME}:dev
+	docker run -it -e PORT=8080 -p 8080:8080 ${DOCKER_IMAGE_NAME}:dev
 
-# Builds a docker image for production
+# Builds a docker image for production (fixed for nested structure)
 build_for_production:
-		docker build \
+	docker build -f neurocheck/Dockerfile \
 		--platform linux/amd64 --no-cache \
 		-t ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${DOCKER_REPO_NAME}/${DOCKER_IMAGE_NAME}:prod .
 
@@ -58,12 +58,12 @@ push_image_production:
 # Deploys the API on gcloud
 deploy_to_cloud_run:
 	gcloud run deploy \
-	--image ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${DOCKER_REPO_NAME}/${DOCKER_IMAGE_NAME}:prod \
-	--memory ${MEMORY} \
-	--region ${GCP_REGION}
+		--image ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${DOCKER_REPO_NAME}/${DOCKER_IMAGE_NAME}:prod \
+		--memory ${MEMORY} \
+		--region ${GCP_REGION} \
+		--port 8080
 
 ##################### CLEANING #####################
-
 clean:
 	@rm -f */version.txt
 	@rm -f .coverage

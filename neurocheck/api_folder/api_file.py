@@ -57,8 +57,10 @@ from xgboost import XGBClassifier
 
 
 # Set cache directory BEFORE any transformers imports
-os.environ["HF_HOME"] = "./neurocheck/hf_cache"
-os.environ["TRANSFORMERS_CACHE"] = "./neurocheck/hf_cache"
+# os.environ["HF_HOME"] = "./neurocheck/hf_cache"
+# os.environ["TRANSFORMERS_CACHE"] = "./neurocheck/hf_cache"
+os.environ["HF_HOME"] = "/app/cache/huggingface"
+os.environ["TRANSFORMERS_CACHE"] = "/app/cache/huggingface"
 
 # === Configure Logging ===
 logging.basicConfig(
@@ -130,6 +132,21 @@ except ImportError as e:
     logging.warning("Alzheimer's modules load failed: %s", e)
     ALZHEIMERS_IMPORT_ERROR = str(e)
 
+# === Load Alzheimer's HF Model Pipeline At Startup ===
+HF_ALZHEIMERS_PIPELINE = None
+HF_ALZHEIMERS_LOADING_ERROR = None
+try:
+    from transformers import pipeline
+
+    HF_ALZHEIMERS_PIPELINE = pipeline(
+        "image-classification",
+        model="DHEIVER/Alzheimer-MRI",
+        cache_dir="/app/cache/huggingface"
+    )
+    logging.info("Hugging Face Alzheimer's pipeline loaded successfully")
+except Exception as e:
+    HF_ALZHEIMERS_LOADING_ERROR = str(e)
+    logging.warning("Failed to load Hugging Face Alzheimer's pipeline: %s", e)
 
 
 # === Helper Functions ===
@@ -390,7 +407,65 @@ async def predict_eeg(eeg_file: UploadFile = File(...)):
     return eeg_dummy_result
 
 
-# === Alzheimer's MRI Prediction Endpoint ===
+# # === Alzheimer's MRI Prediction Endpoint ===
+# @app.post("/predict/alzheimers")
+# async def predict_alzheimers(alz_file: UploadFile = File(...)):
+#     """
+#     Alzheimer's MRI image classification endpoint with comprehensive error handling.
+
+#     Accepts:
+#         - Image files (JPEG/PNG/JPG)
+
+#     Process:
+#         - Reads uploaded image file
+#         - Resizes image using preprocessing module when available
+#         - Predicts Alzheimer's classification using loaded model
+#         - Falls back to informative dummy responses when components fail
+
+#     Returns:
+#         dict: JSON response containing:
+#             - backend_status: "Production" or "development_mode_[error_type]"
+#             - prediction: Model's predicted class label or dummy prediction
+#             - confidence: Model confidence score (0-1) or dummy confidence
+#             - filename: Original uploaded filename
+#             - overlay: Base64-encoded attention overlay (when available)
+#             - note: Error explanation (in dummy responses only)
+#     """
+#     alz_filename = require_filename(alz_file)
+
+#     # Step 1: Validate file format
+#     if not alz_filename.endswith(('.jpg', '.jpeg', '.png')):
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Unsupported file format. Please upload JPEG or PNG image."
+#         )
+
+#     # Step 2: Try processing with full pipeline
+#     if ALZHEIMERS_AVAILABLE and ALZHEIMERS_MODEL_UPLOAD_RESIZING and ALZHEIMERS_MODEL_PREDICT_IMAGE:
+#         try:
+#             alz_contents = await alz_file.read()
+
+#             # Resize image from bytes
+#             original_img, resized_img = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
+
+#             # Predict and get overlay
+#             alz_result, alz_overlay_b64 = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, resized_img)
+
+#             return {
+#                 "backend_status": "Production",
+#                 "prediction": alz_result["label"],
+#                 "confidence": alz_result["score"],
+#                 "filename": alz_filename,
+#                 "overlay": alz_overlay_b64
+#             }
+
+#         except (ValueError, RuntimeError, IOError, KeyError) as alz_error:
+#             logging.warning("Alzheimer prediction failed: %s", alz_error)
+#             return create_alzheimers_dummy_response(alz_filename, f"prediction_error: {str(alz_error)}")
+#     else:
+#         # Fallback to dummy response
+#         return create_alzheimers_dummy_response(alz_filename, "development")
+
 @app.post("/predict/alzheimers")
 async def predict_alzheimers(alz_file: UploadFile = File(...)):
     """
@@ -427,7 +502,6 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
     if ALZHEIMERS_AVAILABLE and ALZHEIMERS_MODEL_UPLOAD_RESIZING and ALZHEIMERS_MODEL_PREDICT_IMAGE:
         try:
             alz_contents = await alz_file.read()
-
             # Resize image from bytes
             original_img, resized_img = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
 
@@ -439,30 +513,6 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
             alz_confidence = alz_result.get("score", 0.5)
 
             # Return structured response
-
-            alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
-
-            # Get prediction result - check what the function actually returns
-            alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
-
-
-            # Handle different return formats
-            if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
-                alz_result, alz_overlay_b64 = alz_prediction_output
-                alz_label = alz_result.get("label", str(alz_result)) \
-                    if isinstance(alz_result, dict) else str(alz_result)
-                alz_confidence = alz_result.get("score", 0.5) \
-                    if isinstance(alz_result, dict) else 0.5
-            else:
-                # Single return value
-                alz_result = alz_prediction_output
-                alz_overlay_b64 = None
-                alz_label = alz_result.get("label", str(alz_result)) \
-                    if isinstance(alz_result, dict) else str(alz_result)
-                alz_confidence = alz_result.get("score", 0.5) \
-                    if isinstance(alz_result, dict) else 0.5
-
-
             return {
                 "backend_status": "Production",
                 "prediction": alz_label,
@@ -470,41 +520,6 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
                 "filename": alz_filename,
                 "overlay": alz_overlay_b64
             }
-
-
-
-
-
-
-    #         alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
-
-    #         # Get prediction result - check what the function actually returns
-    #         alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
-
-
-    #         # Handle different return formats
-    #         if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
-    #             alz_result, alz_overlay_b64 = alz_prediction_output
-    #             alz_label = alz_result.get("label", str(alz_result)) \
-    #                 if isinstance(alz_result, dict) else str(alz_result)
-    #             alz_confidence = alz_result.get("score", 0.5) \
-    #                 if isinstance(alz_result, dict) else 0.5
-    #         else:
-    #             # Single return value
-    #             alz_result = alz_prediction_output
-    #             alz_overlay_b64 = None
-    #             alz_label = alz_result.get("label", str(alz_result)) \
-    #                 if isinstance(alz_result, dict) else str(alz_result)
-    #             alz_confidence = alz_result.get("score", 0.5) \
-    #                 if isinstance(alz_result, dict) else 0.5
-
-    #         return {
-    #             "backend_status": "Production",
-    #             "prediction": alz_label,
-    #             "confidence": alz_confidence,
-    #             "filename": alz_filename,
-    #             "overlay": alz_overlay_b64
-    #         }
 
 
         except (ValueError, RuntimeError, IOError) as alz_error:
@@ -515,6 +530,42 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
     else:
         # Fallback to dummy response
         return create_alzheimers_dummy_response(alz_filename, "development")
+
+
+
+
+
+
+#     #         alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
+
+#     #         # Get prediction result - check what the function actually returns
+#     #         alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
+
+
+#     #         # Handle different return formats
+#     #         if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
+#     #             alz_result, alz_overlay_b64 = alz_prediction_output
+#     #             alz_label = alz_result.get("label", str(alz_result)) \
+#     #                 if isinstance(alz_result, dict) else str(alz_result)
+#     #             alz_confidence = alz_result.get("score", 0.5) \
+#     #                 if isinstance(alz_result, dict) else 0.5
+#     #         else:
+#     #             # Single return value
+#     #             alz_result = alz_prediction_output
+#     #             alz_overlay_b64 = None
+#     #             alz_label = alz_result.get("label", str(alz_result)) \
+#     #                 if isinstance(alz_result, dict) else str(alz_result)
+#     #             alz_confidence = alz_result.get("score", 0.5) \
+#     #                 if isinstance(alz_result, dict) else 0.5
+
+#     #         return {
+#     #             "backend_status": "Production",
+#     #             "prediction": alz_label,
+#     #             "confidence": alz_confidence,
+#     #             "filename": alz_filename,
+#     #             "overlay": alz_overlay_b64
+#     #         }
+
 
 # === Local Dev Server Runner ===
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-# === Step 01: Build Base Image ===
+# === Step 01: Base Image ===
 FROM python:3.10-slim AS base
 
 # Environment variables: no pyc files, unbuffered logs
@@ -16,36 +16,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 
-# === Step 02: Install Python Dependencies (Builder Stage) ===
+# === Step 02: Builder Stage (optional) ===
+# You can still keep this to cache build dependencies if you want, but not mandatory
+
 FROM base AS builder
 
-# Copy requirements first for caching layers
-COPY requirements.txt .
+# Copy requirements.txt first (for cache)
+COPY requirements.txt /app/
 
-# Upgrade pip and install dependencies to /install folder
-RUN pip install --upgrade pip && \
-    pip install --prefix=/install -r requirements.txt
+RUN pip install --upgrade pip
+RUN pip uninstall -y torch torchvision torchaudio || true
+RUN pip install -r requirements.txt
 
-# === Step 03: Final Runtime Image ===
+# === Step 03: Final runtime image ===
 FROM base
 
-# Copy installed packages from builder stage
-COPY --from=builder /install /usr/local
+WORKDIR /app
 
-# Copy backend source code
-COPY . /app/neurocheck
+# Copy requirements.txt to install dependencies here
+COPY requirements.txt /app/
 
-# Create Hugging Face cache directory
+# Install Python dependencies directly in final image
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# Copy your backend source code
+COPY neurocheck /app/
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Create Hugging Face cache directory and environment variables
 RUN mkdir -p /app/cache/huggingface
-
-# Set environment variable to use cache folder for transformers
+ENV HF_HOME=/app/cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/cache/huggingface
 
-# Preload Alzheimer model to cache during build (speeds up runtime)
-RUN python -c "from transformers import pipeline; pipeline('image-classification', model='DHEIVER/Alzheimer-MRI')"
-
-# Expose the port FastAPI listens on
 EXPOSE 8080
 
-# Start FastAPI app with uvicorn
 CMD ["uvicorn", "neurocheck.api_folder.api_file:app", "--host", "0.0.0.0", "--port", "8080"]

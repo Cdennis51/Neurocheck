@@ -25,7 +25,8 @@ def _load_model():
     if classifier is None:
         classifier = pipeline("image-classification",
                              model="DHEIVER/Alzheimer-MRI",
-                             device=device.index if device.type != "cpu" else -1)
+                             device=device.index if device.type != "cpu" else -1,
+                             model_kwargs={"cache_dir": "./neurocheck/hf_cache"})
         processor = AutoImageProcessor.from_pretrained("DHEIVER/Alzheimer-MRI")
         model = classifier.model.to(device)
 
@@ -109,5 +110,4 @@ def predict_alzheimers_image(resized_image):
 
     # return result, overlay_base64
 
-    return result, overlay_base64
-
+    #return result, overlay_base64
