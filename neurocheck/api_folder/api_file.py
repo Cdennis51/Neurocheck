@@ -427,6 +427,19 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
     if ALZHEIMERS_AVAILABLE and ALZHEIMERS_MODEL_UPLOAD_RESIZING and ALZHEIMERS_MODEL_PREDICT_IMAGE:
         try:
             alz_contents = await alz_file.read()
+
+            # Resize image from bytes
+            original_img, resized_img = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
+
+            # Predict and get overlay
+            alz_result, alz_overlay_b64 = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, resized_img)
+
+            # Parse result dictionary
+            alz_label = alz_result.get("label", "Unknown")
+            alz_confidence = alz_result.get("score", 0.5)
+
+            # Return structured response
+
             alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
 
             # Get prediction result - check what the function actually returns
@@ -449,6 +462,7 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
                 alz_confidence = alz_result.get("score", 0.5) \
                     if isinstance(alz_result, dict) else 0.5
 
+
             return {
                 "backend_status": "Production",
                 "prediction": alz_label,
@@ -456,6 +470,42 @@ async def predict_alzheimers(alz_file: UploadFile = File(...)):
                 "filename": alz_filename,
                 "overlay": alz_overlay_b64
             }
+
+
+
+
+
+
+    #         alz_image = ALZHEIMERS_MODEL_UPLOAD_RESIZING(alz_contents)
+
+    #         # Get prediction result - check what the function actually returns
+    #         alz_prediction_output = await run_in_threadpool(ALZHEIMERS_MODEL_PREDICT_IMAGE, alz_image[1])
+
+
+    #         # Handle different return formats
+    #         if isinstance(alz_prediction_output, tuple) and len(alz_prediction_output) == 2:
+    #             alz_result, alz_overlay_b64 = alz_prediction_output
+    #             alz_label = alz_result.get("label", str(alz_result)) \
+    #                 if isinstance(alz_result, dict) else str(alz_result)
+    #             alz_confidence = alz_result.get("score", 0.5) \
+    #                 if isinstance(alz_result, dict) else 0.5
+    #         else:
+    #             # Single return value
+    #             alz_result = alz_prediction_output
+    #             alz_overlay_b64 = None
+    #             alz_label = alz_result.get("label", str(alz_result)) \
+    #                 if isinstance(alz_result, dict) else str(alz_result)
+    #             alz_confidence = alz_result.get("score", 0.5) \
+    #                 if isinstance(alz_result, dict) else 0.5
+
+    #         return {
+    #             "backend_status": "Production",
+    #             "prediction": alz_label,
+    #             "confidence": alz_confidence,
+    #             "filename": alz_filename,
+    #             "overlay": alz_overlay_b64
+    #         }
+
 
         except (ValueError, RuntimeError, IOError) as alz_error:
             logging.warning("Alzheimer prediction failed: %s", alz_error)
