@@ -4,11 +4,14 @@
 After upload, each module sends data to a shared backend and displays model predictions.
 """
 import streamlit as st
-from utils.api_client import call_eeg_api
+from utils.api_client import call_eeg_api, call_mri_api
 from PIL import Image
-# import io  # Uncomment later if sending image bytes to backend
+import matplotlib.pyplot as plt
+import pandas as pd
+import io
 
-st.set_page_config(page_title="NeuroCheck", layout="centered")
+#streamlit set up
+st.set_page_config(page_title="NeuroCheck", layout="centered", page_icon="🧠")
 
 #layyout, colours, fonts
 def inject_css():
@@ -50,53 +53,144 @@ def inject_css():
             border-radius: 10px;
             margin-top: 1rem;
         }
+
+        .result-card h3 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-card p {
+            font-size: 1.2rem;
+        }
+
+        .navbar {
+            background-color: #0b2545;
+            padding: 1rem 2rem;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        .navbar a {
+            color: white;
+            margin-left: 20px;
+            text-decoration: none;
+            font-weight: 500;
+        }
         </style>
     """, unsafe_allow_html=True)
 
 
 inject_css()  # Call it at the top of main script
 # Set up the Streamlit app with two tabs
+def render_navbar():
+    st.markdown("""
+        <div style="background-color:#0B2545; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; color: white; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold;">🧠 NeuroCheck</div>
+            <div style="font-size: 1rem;">
+                <a href="#" style="margin-right: 1.5rem; color: white; text-decoration: none;">EEG</a>
+                <a href="#" style="margin-right: 1.5rem; color: white; text-decoration: none;">Alzheimer's</a>
+                <a href="#" style="color: white; text-decoration: none;">Voice</a>
+            </div>
+        </div>
+        <br>
+    """, unsafe_allow_html=True)
 
+render_navbar()
+st.markdown("""
+    <div style='background-color: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.05);'>
+""", unsafe_allow_html=True)
+
+st.markdown("## AI-Powered Neurological Screening")
+st.markdown("Upload your neurological data and get rapid assessment results.")
+
+#tabs
 tab1, tab2 = st.tabs(["EEG Fatigue Detector", "Alzheimer MRI Classifier"])
 
 # === EEG Tab ===
 with tab1:
     st.subheader("EEG Fatigue Detector")
 
-    # Display EEG upload instructions to user
-    uploaded_eeg_file = st.file_uploader("📂 Upload an EEG", type=["csv"])
+    # Initialize result variable
+    result = None
+    col1, col2 = st.columns([2, 3])
+    with col1:
+        st.markdown("""
+            <div style='background-color: #f0f4f8; border: 2px dashed #205375; border-radius: 10px; padding: 1.5rem; text-align: center;'>
+                <h4 style='color:#205375; margin-bottom: 1rem;'>📂 Upload your EEG</h4>
+        """, unsafe_allow_html=True)
 
-    if uploaded_eeg_file:
-        # Display user EEG file upload status
-        st.write(f"✅ File uploaded: {uploaded_eeg_file.name}")
+        # Place uploader *inside* styled div with label hidden
+        uploaded_eeg_file = st.file_uploader(label="", type=["csv"], label_visibility="hidden")
 
-        # Display EEG file processing status
-        with st.spinner("Analyzing EEG data..."):
-            result = call_eeg_api(uploaded_eeg_file)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # If backend offline, warn but still provide user with fake response
-        if result.get("backend_status") == "offline":
-            st.warning("⚠️ Backend is offline, showing demo prediction instead.")
+        if uploaded_eeg_file:
+            st.success(f"✅ File uploaded: {uploaded_eeg_file.name}")
 
-        # Display prediction result
-        if "fatigue_class" in result:
-            # Convert numeric string to readable label
-            fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
-            display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+            with st.spinner("Analyzing EEG data..."):
+                result = call_eeg_api(uploaded_eeg_file)
 
-            #wraps prediction in styled card
-            st.markdown(f"""
-                <div class='result-card'>
-                    <h3>Prediction: {display_result}</h3>
-                    <p>Confidence Level: {result['confidence']:.2f}</p>
-                </div>
-            """, unsafe_allow_html=True)
+            if result.get("backend_status") == "offline":
+                st.warning("⚠️ Backend is offline, showing demo prediction instead.")
 
-            st.success(f"Prediction: **{display_result}**")
-            if "confidence" in result:
-                st.write(f"Confidence Level: {result['confidence']:.2f}")
-        else:
-            st.error("❌ Could not get prediction.")
+            if "fatigue_class" in result:
+                fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
+                display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+
+
+            else:
+                st.error("❌ Could not get prediction.")
+
+        with col2:
+            # Display EEG Signal using matplotlib (dynamic waveform)
+            if uploaded_eeg_file:
+                try:
+                    df = pd.read_csv(uploaded_eeg_file)
+                    time_col = df.columns[0]
+                    signal_cols = df.columns[1:6]
+
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    for col in signal_cols:
+                        ax.plot(df[time_col], df[col], label=col)
+                    ax.set_title("EEG Signal")
+                    ax.set_xlabel("Time")
+                    ax.set_ylabel("Amplitude")
+                    ax.legend(loc="upper right")
+                    st.pyplot(fig)
+
+                    # 🧠 Output result box after plot
+                    if result and "fatigue_class" in result:
+                        fatigue_labels = {"0": "Not Fatigued", "1": "Fatigued"}
+                        display_result = fatigue_labels.get(result['fatigue_class'], result['fatigue_class'])
+
+                        st.markdown(f"""
+                            <div class='result-card' style='text-align:center; margin-top: 1rem;'>
+                                <div style='font-size: 1.2rem; font-weight: 600;'>Fatigue Score</div>
+                                <div style='font-size: 3rem; font-weight: bold; color: #205375;'>{result['confidence']:.2f}</div>
+                                <div style='font-size: 1.2rem; margin-top: 0.5rem;'>Prediction: {display_result}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                except Exception as e:
+                    st.warning(f"Could not plot EEG dynamically. Showing fallback image.\n\nDetails: {e}")
+                    st.image("https://upload.wikimedia.org/wikipedia/commons/6/6c/EEG_Brainwaves.svg", caption="EEG Signal", use_column_width=True)
+            else:
+                st.image("https://upload.wikimedia.org/wikipedia/commons/6/6c/EEG_Brainwaves.svg", caption="EEG Signal", use_column_width=True)
+
+
+ # spacing before buttons
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.link_button("Explanation", url="#")
+    with col4:
+        st.link_button("Download Report", url="#")
+
 
 # === MRI Tab ===
 with tab2:
@@ -131,6 +225,10 @@ with tab2:
 
         # This additional section will upload and show the MRI Image, discplay prediction and confidence and display attention map.
         with st.spinner("Analyzing MRI..."):
+            st.write(f"Debug - Type: {type(uploaded_mri_file)}")
+            st.write(f"Debug - Has name: {hasattr(uploaded_mri_file, 'name')}")
+            if hasattr(uploaded_mri_file, 'name'):
+                st.write(f"Debug - Name: {uploaded_mri_file.name}")
             result = call_mri_api(uploaded_mri_file)
 
         if "error" in result:
@@ -143,9 +241,18 @@ with tab2:
                 </div>
             """, unsafe_allow_html=True)
 
-            if "overlay" in result:
-                st.image(
-                    f"data:image/png;base64,{result['overlay']}",
-                    caption="Attention Map Overlay",
-                    use_column_width=True
-                )
+        if "overlay" in result:
+            st.image(
+                f"data:image/png;base64,{result['overlay']}",
+                caption="Attention Map Overlay",
+                use_column_width=True
+            )
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+st.markdown("""
+<hr style="margin-top: 2rem; margin-bottom: 1rem;">
+<div style="text-align: center; color: gray; font-size: 0.9rem;">
+    © 2025 NeuroCheck • Developed by NeuroCheck
+</div>
+""", unsafe_allow_html=True)
