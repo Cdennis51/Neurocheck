@@ -30,10 +30,12 @@ __pycache__/
 .ipynb_checkpoints
 
 # Model weights / artifacts
-*.h5
-*.pkl
-*.joblib
 mlruns/
+*.pkl
+*.h5
+*.pt
+*.joblib
+**/hf_cache/
 
 # C extensions
 *.so
@@ -91,3 +93,17 @@ Thumbs.db
 # Ignoring models from Git
 models/
 
+# Ignore common data/log artifacts
+*.csv
+*.tsv
+*.log
+*.npy
+*.npz
+*.onnx
+*.sav
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore folders containing large model artifacts
+outputs/

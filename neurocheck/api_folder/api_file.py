@@ -57,8 +57,8 @@ from xgboost import XGBClassifier
 
 
 # Set cache directory BEFORE any transformers imports
-os.environ["HF_HOME"] = "./neurocheck/hf_cache"
-os.environ["TRANSFORMERS_CACHE"] = "./neurocheck/hf_cache"
+#os.environ["HF_HOME"] = "./neurocheck/hf_cache"
+#os.environ["TRANSFORMERS_CACHE"] = "./neurocheck/hf_cache"
 
 # === Configure Logging ===
 logging.basicConfig(
