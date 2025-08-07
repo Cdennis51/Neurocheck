@@ -8,6 +8,8 @@ soundfile==0.12.1   # For audio file uploads
 fpdf2==2.7.4
 reportlab==4.0.4
 
+
+
 # OpenAI (only if calling GPT from frontend)
 openai==1.3.0
 tiktoken==0.5.1
